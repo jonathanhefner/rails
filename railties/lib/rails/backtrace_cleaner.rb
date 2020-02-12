@@ -10,9 +10,9 @@ module Rails
 
     def initialize
       super
-      @root = "#{Rails.root}/"
+      self.root = Rails.root
       add_filter do |line|
-        line.start_with?(@root) ? line.from(@root.size) : line
+        line.start_with?(root) ? line.from(root.size) : line
       end
       add_filter do |line|
         if RENDER_TEMPLATE_PATTERN.match?(line)
@@ -22,6 +22,12 @@ module Rails
         end
       end
       add_silencer { |line| !APP_DIRS_PATTERN.match?(line) }
+    end
+
+    attr_reader :root
+
+    def root=(path)
+      @root = "#{path.to_s.chomp("/")}/"
     end
   end
 end

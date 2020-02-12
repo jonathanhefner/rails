@@ -40,7 +40,14 @@ module Minitest
   def self.plugin_rails_init(options)
     unless options[:full_backtrace] || ENV["BACKTRACE"]
       # Plugin can run without Rails loaded, check before filtering.
-      Minitest.backtrace_filter = ::Rails.backtrace_cleaner if ::Rails.respond_to?(:backtrace_cleaner)
+      if ::Rails.respond_to?(:backtrace_cleaner) && ::Rails.try(:root)
+        Minitest.backtrace_filter = ::Rails.backtrace_cleaner
+
+        # Prevent stack traces from being hidden when testing Rails plugin projects.
+        if ::Rails.root.dirname.basename.to_s == "test" && ::Rails.root.join("../../lib/").exist?
+          ::Rails.backtrace_cleaner.root = ::Rails.root.join("../../")
+        end
+      end
     end
 
     # Suppress summary reports when outputting inline rerun snippets.
