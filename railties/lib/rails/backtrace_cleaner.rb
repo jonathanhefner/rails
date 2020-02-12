@@ -8,9 +8,9 @@ module Rails
     APP_DIRS_PATTERN = /\A(?:\.\/)?(?:app|config|lib|test|\(\w*\))/
     RENDER_TEMPLATE_PATTERN = /:in `.*_\w+_{2,3}\d+_\d+'/
 
-    def initialize
-      super
-      @root = "#{Rails.root}/"
+    def initialize(root = Rails.root)
+      super()
+      @root = "#{root.to_s.chomp("/")}/"
       add_filter do |line|
         line.start_with?(@root) ? line.from(@root.size) : line
       end

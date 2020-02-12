@@ -13,6 +13,7 @@ require "active_support/core_ext/object/blank"
 require "rails/application"
 require "rails/version"
 require "rails/autoloaders"
+require "rails/backtrace_cleaner"
 
 require "active_support/railtie"
 require "action_dispatch/railtie"
@@ -48,12 +49,10 @@ module Rails
     end
 
     def backtrace_cleaner
-      @backtrace_cleaner ||= begin
-        # Relies on Active Support, so we have to lazy load to postpone definition until Active Support has been loaded
-        require "rails/backtrace_cleaner"
-        Rails::BacktraceCleaner.new
-      end
+      @backtrace_cleaner ||= Rails::BacktraceCleaner.new
     end
+
+    attr_writer :backtrace_cleaner
 
     # Returns a Pathname object of the current Rails project,
     # otherwise it returns +nil+ if there is no project:

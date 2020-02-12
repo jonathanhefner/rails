@@ -10,8 +10,7 @@ ActiveRecord::Migrator.migrations_paths << File.expand_path('../db/migrate', __d
 <% end -%>
 require "rails/test_help"
 
-# Filter out the backtrace from minitest while preserving the one from other libraries.
-Minitest.backtrace_filter = Minitest::BacktraceFilter.new
+Rails.backtrace_cleaner = Rails::BacktraceCleaner.new(File.dirname(__dir__))
 
 <% unless engine? -%>
 require "rails/test_unit/reporter"
