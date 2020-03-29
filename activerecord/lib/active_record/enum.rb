@@ -174,6 +174,7 @@ module ActiveRecord
 
         attr = attribute_alias?(name) ? attribute_alias(name) : name
         decorate_attribute_type(attr, :enum) do |subtype|
+          subtype = subtype.send(:subtype) if subtype.is_a?(EnumType)
           EnumType.new(attr, enum_values, subtype)
         end
 

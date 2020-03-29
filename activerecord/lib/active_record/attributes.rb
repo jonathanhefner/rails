@@ -7,10 +7,6 @@ module ActiveRecord
   module Attributes
     extend ActiveSupport::Concern
 
-    included do
-      class_attribute :attributes_to_define_after_schema_loads, instance_accessor: false, default: {} # :internal:
-    end
-
     module ClassMethods
       # Defines an attribute with a type on this model. It will override the
       # type of existing attributes if needed. This allows control over how
@@ -206,13 +202,14 @@ module ActiveRecord
       # will be called from ActiveModel::Dirty. See the documentation for those
       # methods in ActiveModel::Type::Value for more details.
       def attribute(name, cast_type = Type::Value.new, **options)
-        name = name.to_s
-        reload_schema_from_cache
+        after_schema_loaded do
+          if cast_type.is_a?(Symbol)
+            adapter_name = ActiveRecord::Type.adapter_name_from(self)
+            cast_type = ActiveRecord::Type.lookup(cast_type, **options.except(:default), adapter: adapter_name)
+          end
 
-        self.attributes_to_define_after_schema_loads =
-          attributes_to_define_after_schema_loads.merge(
-            name => [cast_type, options]
-          )
+          define_attribute(name.to_s, cast_type, **options.slice(:default))
+        end
       end
 
       # This is the low level API which sits beneath +attribute+. It only
@@ -241,18 +238,6 @@ module ActiveRecord
       )
         attribute_types[name] = cast_type
         define_default_attribute(name, default, cast_type, from_user: user_provided_default)
-      end
-
-      def load_schema! # :nodoc:
-        super
-        attributes_to_define_after_schema_loads.each do |name, (type, options)|
-          if type.is_a?(Symbol)
-            adapter_name = ActiveRecord::Type.adapter_name_from(self)
-            type = ActiveRecord::Type.lookup(type, **options.except(:default), adapter: adapter_name)
-          end
-
-          define_attribute(name, type, **options.slice(:default))
-        end
       end
 
       private

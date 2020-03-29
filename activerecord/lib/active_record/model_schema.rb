@@ -454,6 +454,10 @@ module ActiveRecord
         initialize_find_by_cache
       end
 
+      def schema_loaded_class_callbacks # :nodoc:
+        @schema_loaded_class_callbacks ||= []
+      end
+
       protected
         def initialize_load_schema_monitor
           @load_schema_monitor = Monitor.new
@@ -463,6 +467,17 @@ module ActiveRecord
         def inherited(child_class)
           super
           child_class.initialize_load_schema_monitor
+        end
+
+        def after_schema_loaded(&block)
+          schema_loaded_class_callbacks << block
+          reload_schema_from_cache
+        end
+
+        def run_schema_loaded_callbacks
+          ancestors.reverse_each do |klass|
+            klass.try(:schema_loaded_class_callbacks)&.each { |callback| instance_exec(&callback) }
+          end
         end
 
         def schema_loaded?
@@ -496,6 +511,7 @@ module ActiveRecord
               user_provided_default: false
             )
           end
+          run_schema_loaded_callbacks
         end
 
         def reload_schema_from_cache

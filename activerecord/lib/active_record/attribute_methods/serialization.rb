@@ -70,6 +70,8 @@ module ActiveRecord
           end
 
           decorate_attribute_type(attr_name, :serialize) do |type|
+            type = type.subtype if type.is_a?(Type::Serialized)
+
             if type_incompatible_with_serialize?(type, class_name_or_coder)
               raise ColumnNotSerializableError.new(attr_name, type)
             end
