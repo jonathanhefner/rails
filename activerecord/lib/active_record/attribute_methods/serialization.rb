@@ -70,7 +70,7 @@ module ActiveRecord
           end
 
           attr_name = attr_name.to_s
-          type, options = attributes_to_define_after_schema_loads[attr_name]
+          type, options = deferred_attribute_definitions[attr_name]
 
           attribute(attr_name) do |cast_type|
             if type && !type.is_a?(Proc)

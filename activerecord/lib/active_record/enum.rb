@@ -183,7 +183,7 @@ module ActiveRecord
         detect_enum_conflict!(name, "#{name}=")
 
         attr = attribute_alias?(name) ? attribute_alias(name) : name
-        type, options = attributes_to_define_after_schema_loads[attr]
+        type, options = deferred_attribute_definitions[attr]
 
         attribute(attr, **default) do |subtype|
           if type && !type.is_a?(Proc)
