@@ -38,20 +38,17 @@ module ActiveRecord
       # will replace the previous decorator, not decorate twice. This can be
       # used to ensure that class macros are idempotent.
       def decorate_matching_attribute_types(matcher, decorator_name, &block)
-        reload_schema_from_cache
+        reset_attributes
         deferred_attribute_type_decorations[decorator_name.to_s] = [matcher, block]
       end
 
       private
-        def load_schema!
-          super
+        def add_attribute_to_attribute_set(attribute_set, name, type, **options)
           deferred = ancestors.map { |klass| klass.try(:deferred_attribute_type_decorations) }.compact.reduce(&:reverse_merge)
-          attribute_types.each do |name, type|
-            decorated_type = deferred.each_value.reduce(type) do |t, (matcher, block)|
-              matcher.call(name, type) ? block.call(t) : t
-            end
-            define_attribute(name, decorated_type)
+          decorated_type = deferred.each_value.reduce(type) do |t, (matcher, block)|
+            matcher.call(name, type) ? block.call(t) : t
           end
+          super(super, name, decorated_type)
         end
     end
   end
