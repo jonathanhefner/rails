@@ -314,6 +314,10 @@ end
 
 class RescueTest < ActionDispatch::IntegrationTest
   class TestController < ActionController::Base
+    rescue_from ActionDispatch::Http::Parameters::ParseError do
+      render plain: "parse error", status: :bad_request
+    end
+
     class RecordInvalid < StandardError
       def message
         "invalid"
@@ -322,6 +326,7 @@ class RescueTest < ActionDispatch::IntegrationTest
     rescue_from RecordInvalid, with: :show_errors
 
     def foo
+      params
       render plain: "foo"
     end
 
@@ -342,6 +347,14 @@ class RescueTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "rescue parse error inside controller" do
+    with_test_routing do
+      post "/foo", params: "{", env: { "RAW_POST_DATA" => "{" }, as: :json
+      assert_response :bad_request
+      assert_equal "parse error", response.body
+    end
+  end
+
   test "rescue exceptions inside controller" do
     with_test_routing do
       get "/invalid"
@@ -354,6 +367,7 @@ class RescueTest < ActionDispatch::IntegrationTest
       with_routing do |set|
         set.draw do
           get "foo", to: ::RescueTest::TestController.action(:foo)
+          post "foo", to: ::RescueTest::TestController.action(:foo)
           get "invalid", to: ::RescueTest::TestController.action(:invalid)
         end
         yield
