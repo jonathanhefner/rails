@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/class/store"
+
 module ActiveRecord
   module AttributeDecorators # :nodoc:
     extend ActiveSupport::Concern
 
     included do
-      class_attribute :attribute_type_decorations, instance_accessor: false, default: TypeDecorator.new # :internal:
+      class_store :attribute_type_decorations, default: TypeDecorator.new # :internal:
     end
 
     module ClassMethods # :nodoc:
@@ -39,10 +41,8 @@ module ActiveRecord
       # used to ensure that class macros are idempotent.
       def decorate_matching_attribute_types(matcher, decorator_name, &block)
         reload_schema_from_cache
-        decorator_name = decorator_name.to_s
 
-        # Create new hashes so we don't modify parent classes
-        self.attribute_type_decorations = attribute_type_decorations.merge(decorator_name => [matcher, block])
+        store_attribute_type_decorations(decorator_name.to_s => [matcher, block])
       end
 
       private
@@ -56,10 +56,15 @@ module ActiveRecord
     end
 
     class TypeDecorator # :nodoc:
-      delegate :clear, to: :@decorations
+      delegate :[], :[]=, :clear, to: :@decorations
 
       def initialize(decorations = {})
         @decorations = decorations
+      end
+
+      def initialize_dup(other)
+        super
+        @decorations = @decorations.dup
       end
 
       def merge(*args)
