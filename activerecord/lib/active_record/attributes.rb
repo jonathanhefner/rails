@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/class/store"
 require "active_model/attribute/user_provided_default"
 
 module ActiveRecord
@@ -8,7 +9,7 @@ module ActiveRecord
     extend ActiveSupport::Concern
 
     included do
-      class_attribute :attributes_to_define_after_schema_loads, instance_accessor: false, default: {} # :internal:
+      class_store :attributes_to_define_after_schema_loads # :internal:
     end
 
     module ClassMethods
@@ -206,13 +207,9 @@ module ActiveRecord
       # will be called from ActiveModel::Dirty. See the documentation for those
       # methods in ActiveModel::Type::Value for more details.
       def attribute(name, cast_type = Type::Value.new, **options)
-        name = name.to_s
         reload_schema_from_cache
 
-        self.attributes_to_define_after_schema_loads =
-          attributes_to_define_after_schema_loads.merge(
-            name => [cast_type, options]
-          )
+        store_attributes_to_define_after_schema_loads(name.to_s => [cast_type, options])
       end
 
       # This is the low level API which sits beneath +attribute+. It only
