@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/class/store"
+
 module ActiveStorage
   module Reflection
     # Holds all the metadata about a has_one_attached attachment as it was
@@ -20,7 +22,7 @@ module ActiveStorage
 
     module ReflectionExtension # :nodoc:
       def add_attachment_reflection(model, name, reflection)
-        model.attachment_reflections = model.attachment_reflections.merge(name.to_s => reflection)
+        model.store_attachment_reflections(name.to_s => reflection)
       end
 
       private
@@ -40,7 +42,7 @@ module ActiveStorage
       extend ActiveSupport::Concern
 
       included do
-        class_attribute :attachment_reflections, instance_writer: false, default: {}
+        class_store :attachment_reflections, instance_reader: true
       end
 
       module ClassMethods

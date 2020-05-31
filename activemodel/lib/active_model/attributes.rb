@@ -2,6 +2,7 @@
 
 require "active_model/attribute_set"
 require "active_model/attribute/user_provided_default"
+require "active_support/core_ext/class/store"
 
 module ActiveModel
   module Attributes #:nodoc:
@@ -10,9 +11,8 @@ module ActiveModel
 
     included do
       attribute_method_suffix "="
-      class_attribute :attribute_types, :_default_attributes, instance_accessor: false
-      self.attribute_types = Hash.new(Type.default_value)
-      self._default_attributes = AttributeSet.new({})
+      class_store :attribute_types, default: Hash.new(Type.default_value)
+      class_attribute :_default_attributes, instance_accessor: false, default: AttributeSet.new({})
     end
 
     module ClassMethods
@@ -21,7 +21,7 @@ module ActiveModel
         if type.is_a?(Symbol)
           type = ActiveModel::Type.lookup(type, **options.except(:default))
         end
-        self.attribute_types = attribute_types.merge(name => type)
+        store_attribute_types(name => type)
         define_default_attribute(name, options.fetch(:default, NO_DEFAULT_PROVIDED), type)
         define_attribute_method(name)
       end

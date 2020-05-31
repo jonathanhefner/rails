@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "concurrent/map"
+require "active_support/core_ext/class/store"
 
 module ActiveModel
   # Raised when an attribute is not defined.
@@ -69,7 +70,7 @@ module ActiveModel
     CALL_COMPILABLE_REGEXP = /\A[a-zA-Z_]\w*[!?]?\z/
 
     included do
-      class_attribute :attribute_aliases, instance_writer: false, default: {}
+      class_store :attribute_aliases, instance_reader: true
       class_attribute :attribute_method_matchers, instance_writer: false, default: [ ClassMethods::AttributeMethodMatcher.new ]
     end
 
@@ -206,7 +207,7 @@ module ActiveModel
       #   person.name_short?     # => true
       #   person.nickname_short? # => true
       def alias_attribute(new_name, old_name)
-        self.attribute_aliases = attribute_aliases.merge(new_name.to_s => old_name.to_s)
+        store_attribute_aliases(new_name.to_s => old_name.to_s)
         CodeGenerator.batch(self, __FILE__, __LINE__) do |owner|
           attribute_method_matchers.each do |matcher|
             matcher_new = matcher.method_name(new_name).to_s

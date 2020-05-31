@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "tmpdir"
+require "active_support/core_ext/class/store"
 
 module ActionMailer
   # This module handles everything related to mail delivery, from registering
@@ -14,7 +15,7 @@ module ActionMailer
       cattr_accessor :perform_deliveries, default: true
       cattr_accessor :deliver_later_queue_name, default: :mailers
 
-      class_attribute :delivery_methods, default: {}.freeze
+      class_store :delivery_methods, instance_reader: true
       class_attribute :delivery_method, default: :smtp
 
       add_delivery_method :smtp, Mail::SMTP,
@@ -50,7 +51,7 @@ module ActionMailer
       def add_delivery_method(symbol, klass, default_options = {})
         class_attribute(:"#{symbol}_settings") unless respond_to?(:"#{symbol}_settings")
         send(:"#{symbol}_settings=", default_options)
-        self.delivery_methods = delivery_methods.merge(symbol.to_sym => klass).freeze
+        store_delivery_methods(symbol.to_sym => klass)
       end
 
       def wrap_delivery_behavior(mail, method = nil, options = nil) # :nodoc:

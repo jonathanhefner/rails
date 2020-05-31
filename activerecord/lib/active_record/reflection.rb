@@ -17,7 +17,7 @@ module ActiveRecord
 
     included do
       class_store :_reflections, instance_reader: true, default: LiloHash.new
-      class_attribute :aggregate_reflections, instance_writer: false, default: {}
+      class_store :aggregate_reflections, instance_reader: true
     end
 
     class << self
@@ -32,7 +32,7 @@ module ActiveRecord
       end
 
       def add_aggregate_reflection(ar, name, reflection)
-        ar.aggregate_reflections = ar.aggregate_reflections.merge(-name.to_s => reflection)
+        ar.store_aggregate_reflections(-name.to_s => reflection)
       end
 
       private
