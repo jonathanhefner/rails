@@ -3,7 +3,7 @@
 require "active_support/concern"
 require "active_support/descendants_tracker"
 require "active_support/core_ext/array/extract_options"
-require "active_support/core_ext/class/attribute"
+require "active_support/core_ext/class/store"
 require "active_support/core_ext/string/filters"
 require "thread"
 
@@ -64,7 +64,7 @@ module ActiveSupport
 
     included do
       extend ActiveSupport::DescendantsTracker
-      class_attribute :__callbacks, instance_writer: false, default: {}
+      class_store :__callbacks, instance_reader: true
     end
 
     CALLBACK_FILTER_TYPES = [:before, :after, :around]
@@ -844,18 +844,8 @@ module ActiveSupport
             __callbacks[name.to_sym]
           end
 
-          if Module.instance_method(:method_defined?).arity == 1 # Ruby 2.5 and older
-            def set_callbacks(name, callbacks) # :nodoc:
-              self.__callbacks = __callbacks.merge(name.to_sym => callbacks)
-            end
-          else # Ruby 2.6 and newer
-            def set_callbacks(name, callbacks) # :nodoc:
-              unless singleton_class.method_defined?(:__callbacks, false)
-                self.__callbacks = __callbacks.dup
-              end
-              self.__callbacks[name.to_sym] = callbacks
-              self.__callbacks
-            end
+          def set_callbacks(name, callbacks) # :nodoc:
+            __store_callbacks(name.to_sym => callbacks)
           end
       end
   end
