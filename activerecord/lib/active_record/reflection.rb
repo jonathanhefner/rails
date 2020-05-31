@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/class/store"
 require "active_support/core_ext/string/filters"
 
 module ActiveRecord
@@ -7,8 +8,15 @@ module ActiveRecord
   module Reflection # :nodoc:
     extend ActiveSupport::Concern
 
+    class LiloHash < Hash
+      def []=(key, value)
+        delete(key)
+        super
+      end
+    end
+
     included do
-      class_attribute :_reflections, instance_writer: false, default: {}
+      class_store :_reflections, instance_reader: true, default: LiloHash.new
       class_attribute :aggregate_reflections, instance_writer: false, default: {}
     end
 
@@ -20,8 +28,7 @@ module ActiveRecord
 
       def add_reflection(ar, name, reflection)
         ar.clear_reflections_cache
-        name = -name.to_s
-        ar._reflections = ar._reflections.except(name).merge!(name => reflection)
+        ar._store_reflections(-name.to_s => reflection)
       end
 
       def add_aggregate_reflection(ar, name, reflection)
