@@ -20,6 +20,12 @@ module ActiveSupport
       end
     end
 
+    class InvalidKeyLengthError < RuntimeError
+      def initialize
+        super "Encryption key must be exactly #{EncryptedFile.generate_key.length} characters."
+      end
+    end
+
     CIPHER = "aes-128-gcm"
 
     def self.generate_key
@@ -75,6 +81,9 @@ module ActiveSupport
 
       def encrypt(contents)
         encryptor.encrypt_and_sign contents
+      rescue ArgumentError => e
+        raise InvalidKeyLengthError if e.message.match?(/key must be \d+ bytes/)
+        raise
       end
 
       def decrypt(contents)
