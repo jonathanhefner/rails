@@ -22,7 +22,7 @@ module ActiveStorage
 
     module ReflectionExtension # :nodoc:
       def add_attachment_reflection(model, name, reflection)
-        model.store_attachment_reflections(name.to_s => reflection)
+        model.update_attachment_reflections_with_heritable_value(name.to_s, reflection)
       end
 
       private

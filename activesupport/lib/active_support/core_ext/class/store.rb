@@ -3,7 +3,6 @@
 require "active_support/core_ext/class/attribute"
 require "active_support/core_ext/class/subclasses"
 require "active_support/core_ext/module/redefine_method"
-require "active_support/core_ext/object/try"
 
 class Class
   def class_store(*names, default: {}, instance_reader: false) # :nodoc:
@@ -11,31 +10,28 @@ class Class
       class_attribute(attr, default: default, instance_reader: instance_reader,
         instance_writer: false, instance_predicate: false)
 
-      store_method_name = attr.to_s.sub(/^(_*)/, '\1store_') # e.g. "_foos" => "_store_foos"
+      # e.g. "_foos" => "_update_foos_with_heritable_value"
+      method_name = attr.to_s.sub(/\A(_*)(.+)\z/, '\1update_\2_with_heritable_value')
 
       <<~RUBY
-        silence_redefinition_of_method def #{store_method_name}(values_hash)
-          if #{attr}.equal?(superclass.try(:#{attr}))
-            self.#{attr} = #{attr}.dup
+        silence_redefinition_of_method def #{method_name}(key, value, _at_root = true)
+          if _at_root
+            if !defined?(@_overridden_#{attr}_keys)
+              self.#{attr} = #{attr}.dup
+              @_overridden_#{attr}_keys = Set.new
+            end
+            @_overridden_#{attr}_keys << key
           end
 
-          values_hash.each do |key, value|
-            _propagate_#{attr}_value(key, value, true)
-          end
-
-          #{attr}
-        end
-
-        silence_redefinition_of_method def _propagate_#{attr}_value(key, value, at_root)
-          (@_overridden_#{attr}_keys ||= Set.new) << key if at_root
-
-          if at_root || !defined?(@_overridden_#{attr}_keys) || !@_overridden_#{attr}_keys.include?(key)
+          if _at_root || !defined?(@_overridden_#{attr}_keys) || !@_overridden_#{attr}_keys.include?(key)
             #{attr}[key] = value
 
             subclasses.each do |klass|
-              klass._propagate_#{attr}_value(key, value, false) unless klass.#{attr}.equal?(#{attr})
+              klass.#{method_name}(key, value, false) unless klass.#{attr}.equal?(#{attr})
             end
           end
+
+          #{attr}
         end
       RUBY
     end

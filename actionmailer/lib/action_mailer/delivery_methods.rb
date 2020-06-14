@@ -51,7 +51,7 @@ module ActionMailer
       def add_delivery_method(symbol, klass, default_options = {})
         class_attribute(:"#{symbol}_settings") unless respond_to?(:"#{symbol}_settings")
         send(:"#{symbol}_settings=", default_options)
-        store_delivery_methods(symbol.to_sym => klass)
+        update_delivery_methods_with_heritable_value(symbol.to_sym, klass)
       end
 
       def wrap_delivery_behavior(mail, method = nil, options = nil) # :nodoc:

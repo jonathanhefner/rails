@@ -28,11 +28,11 @@ module ActiveRecord
 
       def add_reflection(ar, name, reflection)
         ar.clear_reflections_cache
-        ar._store_reflections(-name.to_s => reflection)
+        ar._update_reflections_with_heritable_value(-name.to_s, reflection)
       end
 
       def add_aggregate_reflection(ar, name, reflection)
-        ar.store_aggregate_reflections(-name.to_s => reflection)
+        ar.update_aggregate_reflections_with_heritable_value(-name.to_s, reflection)
       end
 
       private
