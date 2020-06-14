@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "concurrent/map"
-require "active_support/core_ext/class/store"
 
 module ActiveModel
   # Raised when an attribute is not defined.
@@ -70,7 +69,7 @@ module ActiveModel
     CALL_COMPILABLE_REGEXP = /\A[a-zA-Z_]\w*[!?]?\z/
 
     included do
-      class_store :attribute_aliases, instance_reader: true
+      class_attribute :attribute_aliases, instance_writer: false, default: {}
       class_attribute :attribute_method_matchers, instance_writer: false, default: [ ClassMethods::AttributeMethodMatcher.new ]
     end
 

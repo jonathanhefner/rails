@@ -3,7 +3,7 @@
 require "active_support/concern"
 require "active_support/descendants_tracker"
 require "active_support/core_ext/array/extract_options"
-require "active_support/core_ext/class/store"
+require "active_support/core_ext/class/attribute"
 require "active_support/core_ext/string/filters"
 require "thread"
 
@@ -64,7 +64,7 @@ module ActiveSupport
 
     included do
       extend ActiveSupport::DescendantsTracker
-      class_store :__callbacks, instance_reader: true
+      class_attribute :__callbacks, instance_writer: false, default: {}
     end
 
     CALLBACK_FILTER_TYPES = [:before, :after, :around]

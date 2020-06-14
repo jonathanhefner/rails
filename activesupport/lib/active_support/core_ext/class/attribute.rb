@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/class/subclasses"
 require "active_support/core_ext/module/redefine_method"
 
 class Class
@@ -121,6 +122,33 @@ class Class
         if instance_reader
           methods << "silence_redefinition_of_method def #{name}?; !!self.#{name}; end"
         end
+      end
+
+      if default.respond_to?(:[]=)
+        # e.g. "_foos" => "_update_foos_with_heritable_value"
+        update_method_name = name.to_s.sub(/\A(_*)(.+)\z/, '\1update_\2_with_heritable_value')
+
+        class_methods << <<~RUBY
+          silence_redefinition_of_method def #{update_method_name}(key, value, _at_root = true)
+            if _at_root
+              if !defined?(@_overridden_#{name}_keys)
+                self.#{name} = #{name}.dup
+                @_overridden_#{name}_keys = Set.new
+              end
+              @_overridden_#{name}_keys << key
+            end
+
+            if _at_root || !defined?(@_overridden_#{name}_keys) || !@_overridden_#{name}_keys.include?(key)
+              #{name}[key] = value
+
+              subclasses.each do |klass|
+                klass.#{update_method_name}(key, value, false) unless klass.#{name}.equal?(#{name})
+              end
+            end
+
+            #{name}
+          end
+        RUBY
       end
     end
 

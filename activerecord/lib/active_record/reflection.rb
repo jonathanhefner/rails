@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "active_support/core_ext/class/store"
 require "active_support/core_ext/string/filters"
 
 module ActiveRecord
@@ -16,8 +15,8 @@ module ActiveRecord
     end
 
     included do
-      class_store :_reflections, instance_reader: true, default: LiloHash.new
-      class_store :aggregate_reflections, instance_reader: true
+      class_attribute :_reflections, instance_writer: false, default: LiloHash.new
+      class_attribute :aggregate_reflections, instance_writer: false, default: {}
     end
 
     class << self

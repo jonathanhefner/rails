@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "active_support/core_ext/class/store"
 require "active_model/attribute/user_provided_default"
 
 module ActiveRecord
@@ -9,7 +8,7 @@ module ActiveRecord
     extend ActiveSupport::Concern
 
     included do
-      class_store :attributes_to_define_after_schema_loads # :internal:
+      class_attribute :attributes_to_define_after_schema_loads, instance_accessor: false, default: {} # :internal:
     end
 
     module ClassMethods

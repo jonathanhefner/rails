@@ -2,7 +2,6 @@
 
 require "active_model/attribute_set"
 require "active_model/attribute/user_provided_default"
-require "active_support/core_ext/class/store"
 
 module ActiveModel
   module Attributes #:nodoc:
@@ -11,7 +10,7 @@ module ActiveModel
 
     included do
       attribute_method_suffix "="
-      class_store :attribute_types, default: Hash.new(Type.default_value)
+      class_attribute :attribute_types, instance_accessor: false, default: Hash.new(Type.default_value)
       class_attribute :_default_attributes, instance_accessor: false, default: AttributeSet.new({})
     end
 

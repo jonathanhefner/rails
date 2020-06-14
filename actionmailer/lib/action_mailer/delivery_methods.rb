@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "tmpdir"
-require "active_support/core_ext/class/store"
 
 module ActionMailer
   # This module handles everything related to mail delivery, from registering
@@ -15,7 +14,7 @@ module ActionMailer
       cattr_accessor :perform_deliveries, default: true
       cattr_accessor :deliver_later_queue_name, default: :mailers
 
-      class_store :delivery_methods, instance_reader: true
+      class_attribute :delivery_methods, default: {}.freeze
       class_attribute :delivery_method, default: :smtp
 
       add_delivery_method :smtp, Mail::SMTP,
