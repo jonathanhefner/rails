@@ -5,7 +5,7 @@ module ActiveRecord
     extend ActiveSupport::Concern
 
     included do
-      class_attribute :attribute_type_decorations, instance_accessor: false, default: TypeDecorator.new # :internal:
+      class_attribute :attribute_type_decorations, instance_accessor: false, default: {} # :internal:
     end
 
     module ClassMethods # :nodoc:
@@ -47,43 +47,10 @@ module ActiveRecord
         def load_schema!
           super
           attribute_types.each do |name, type|
-            decorated_type = attribute_type_decorations.apply(name, type)
+            decorated_type = attribute_type_decorations.each_value.reduce(type) do |t, (matcher, block)|
+              matcher.call(name, type) ? block.call(t) : t
+            end
             define_attribute(name, decorated_type)
-          end
-        end
-    end
-
-    class TypeDecorator # :nodoc:
-      delegate :[], :[]=, :clear, to: :@decorations
-
-      def initialize(decorations = {})
-        @decorations = decorations
-      end
-
-      def initialize_dup(other)
-        super
-        @decorations = @decorations.dup
-      end
-
-      def merge(*args)
-        TypeDecorator.new(@decorations.merge(*args))
-      end
-
-      def apply(name, type)
-        decorations = decorators_for(name, type)
-        decorations.inject(type) do |new_type, block|
-          block.call(new_type)
-        end
-      end
-
-      private
-        def decorators_for(name, type)
-          matching(name, type).map(&:last)
-        end
-
-        def matching(name, type)
-          @decorations.values.select do |(matcher, _)|
-            matcher.call(name, type)
           end
         end
     end

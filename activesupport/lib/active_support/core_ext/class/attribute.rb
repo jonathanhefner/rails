@@ -124,7 +124,7 @@ class Class
         end
       end
 
-      if default.respond_to?(:[]=)
+      if default.is_a?(Hash)
         # e.g. "_foos" => "_update_foos_with_heritable_value"
         update_method_name = name.to_s.sub(/\A(_*)(.+)\z/, '\1update_\2_with_heritable_value')
 
