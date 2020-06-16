@@ -845,7 +845,7 @@ module ActiveSupport
           end
 
           def set_callbacks(name, callbacks) # :nodoc:
-            __update_callbacks_with_heritable_value(name.to_sym, callbacks)
+            update_heritable_value_of(:__callbacks, name.to_sym, callbacks)
           end
       end
   end

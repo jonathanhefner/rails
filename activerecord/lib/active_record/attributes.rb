@@ -208,7 +208,7 @@ module ActiveRecord
       def attribute(name, cast_type = Type::Value.new, **options)
         reload_schema_from_cache
 
-        update_attributes_to_define_after_schema_loads_with_heritable_value(name.to_s, [cast_type, options])
+        update_heritable_value_of(:attributes_to_define_after_schema_loads, name.to_s, [cast_type, options])
       end
 
       # This is the low level API which sits beneath +attribute+. It only

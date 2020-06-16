@@ -20,7 +20,7 @@ module ActiveModel
         if type.is_a?(Symbol)
           type = ActiveModel::Type.lookup(type, **options.except(:default))
         end
-        update_attribute_types_with_heritable_value(name, type)
+        update_heritable_value_of(:attribute_types, name, type)
         define_default_attribute(name, options.fetch(:default, NO_DEFAULT_PROVIDED), type)
         define_attribute_method(name)
       end

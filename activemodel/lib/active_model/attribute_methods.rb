@@ -206,7 +206,7 @@ module ActiveModel
       #   person.name_short?     # => true
       #   person.nickname_short? # => true
       def alias_attribute(new_name, old_name)
-        update_attribute_aliases_with_heritable_value(new_name.to_s, old_name.to_s)
+        update_heritable_value_of(:attribute_aliases, new_name.to_s, old_name.to_s)
         CodeGenerator.batch(self, __FILE__, __LINE__) do |owner|
           attribute_method_matchers.each do |matcher|
             matcher_new = matcher.method_name(new_name).to_s

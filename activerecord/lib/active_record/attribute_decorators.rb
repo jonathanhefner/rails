@@ -40,7 +40,7 @@ module ActiveRecord
       def decorate_matching_attribute_types(matcher, decorator_name, &block)
         reload_schema_from_cache
 
-        update_attribute_type_decorations_with_heritable_value(decorator_name.to_s, [matcher, block])
+        update_heritable_value_of(:attribute_type_decorations, decorator_name.to_s, [matcher, block])
       end
 
       private

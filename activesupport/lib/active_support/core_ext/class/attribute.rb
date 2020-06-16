@@ -123,41 +123,41 @@ class Class
           methods << "silence_redefinition_of_method def #{name}?; !!self.#{name}; end"
         end
       end
-
-      if default.is_a?(Hash)
-        default = default.dup
-
-        # e.g. "_foos" => "_update_foos_with_heritable_value"
-        update_method_name = name.to_s.sub(/\A(_*)(.+)\z/, '\1update_\2_with_heritable_value')
-
-        class_methods << <<~RUBY
-          silence_redefinition_of_method def #{update_method_name}(key, value, _at_root = true)
-            if _at_root
-              if superclass.respond_to?(:#{update_method_name})
-                self.#{name} = #{name}.dup if #{name}.equal?(superclass.#{name})
-                (@_overridden_#{name}_keys ||= Set.new) << key unless superclass.#{name}&.empty?
-              end
-            else
-              @_overridden_#{name}_keys ||= Set.new(#{name}.keys)
-            end
-
-            if _at_root || !@_overridden_#{name}_keys.include?(key)
-              #{name}[key] = value
-
-              subclasses.each do |klass|
-                klass.#{update_method_name}(key, value, false) unless klass.#{name}.equal?(#{name})
-              end
-            end
-
-            #{name}
-          end
-        RUBY
-      end
     end
 
     location = caller_locations(1, 1).first
     class_eval(["class << self", *class_methods, "end", *methods].join(";").tr("\n", ";"), location.path, location.lineno)
 
     attrs.each { |name| public_send("#{name}=", default) }
+  end
+
+  def update_heritable_value_of(attr, key, value, _at_root = true) # :nodoc:
+    hashmap = self.send(attr)
+
+    if _at_root
+      if superclass.respond_to?(attr)
+        superclass_hashmap = superclass.send(attr)
+        hashmap = self.send(:"#{attr}=", hashmap.dup) if hashmap.equal?(superclass_hashmap)
+        unless superclass_hashmap.empty?
+          @_overridden_heritable_keys_per_attr ||= {}
+          (@_overridden_heritable_keys_per_attr[attr] ||= Set.new) << key
+        end
+      end
+    else
+      @_overridden_heritable_keys_per_attr ||= {}
+      @_overridden_heritable_keys_per_attr[attr] ||= Set.new(hashmap.keys)
+    end
+
+    if _at_root || !@_overridden_heritable_keys_per_attr[attr].include?(key)
+      hashmap[key] = value
+
+      subclasses.each do |klass|
+        unless klass.send(attr).equal?(hashmap)
+          klass.update_heritable_value_of(attr, key, value, false)
+        end
+      end
+    end
+
+    hashmap
   end
 end
