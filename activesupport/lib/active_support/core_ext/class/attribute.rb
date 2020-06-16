@@ -125,20 +125,23 @@ class Class
       end
 
       if default.is_a?(Hash)
+        default = default.dup
+
         # e.g. "_foos" => "_update_foos_with_heritable_value"
         update_method_name = name.to_s.sub(/\A(_*)(.+)\z/, '\1update_\2_with_heritable_value')
 
         class_methods << <<~RUBY
           silence_redefinition_of_method def #{update_method_name}(key, value, _at_root = true)
             if _at_root
-              if !defined?(@_overridden_#{name}_keys)
-                self.#{name} = #{name}.dup
-                @_overridden_#{name}_keys = Set.new
+              if superclass.respond_to?(:#{update_method_name})
+                self.#{name} = #{name}.dup if #{name}.equal?(superclass.#{name})
+                (@_overridden_#{name}_keys ||= Set.new) << key unless superclass.#{name}&.empty?
               end
-              @_overridden_#{name}_keys << key
+            else
+              @_overridden_#{name}_keys ||= Set.new(#{name}.keys)
             end
 
-            if _at_root || !defined?(@_overridden_#{name}_keys) || !@_overridden_#{name}_keys.include?(key)
+            if _at_root || !@_overridden_#{name}_keys.include?(key)
               #{name}[key] = value
 
               subclasses.each do |klass|
