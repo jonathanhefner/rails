@@ -133,22 +133,29 @@ class Class
 
   def update_heritable_value_of(attr, key, value, _at_root = true) # :nodoc:
     hashmap = self.send(attr)
+    overridden_keys = (hashmap._overridden_heritable_keys if hashmap.respond_to?(:_overridden_heritable_keys))
 
     if _at_root
       if superclass.respond_to?(attr)
         superclass_hashmap = superclass.send(attr)
-        hashmap = self.send(:"#{attr}=", hashmap.dup) if hashmap.equal?(superclass_hashmap)
-        unless superclass_hashmap.empty?
-          @_overridden_heritable_keys_per_attr ||= {}
-          (@_overridden_heritable_keys_per_attr[attr] ||= Set.new) << key
+        if hashmap.equal?(superclass_hashmap)
+          hashmap = self.send(:"#{attr}=", hashmap.dup)
+          overridden_keys = nil
         end
+        # Avoid allocating `overridden_keys` when superclass hashmap is empty.
+        (overridden_keys ||= Set.new) << key unless superclass_hashmap.empty?
       end
     else
-      @_overridden_heritable_keys_per_attr ||= {}
-      @_overridden_heritable_keys_per_attr[attr] ||= Set.new(hashmap.keys)
+      # We're in a recursive call, which means superclass hashmap is now
+      # non-empty, so backfill `overridden_keys` as necessary.
+      overridden_keys ||= Set.new(hashmap.keys)
     end
 
-    if _at_root || !@_overridden_heritable_keys_per_attr[attr].include?(key)
+    if overridden_keys && !hashmap.respond_to?(:_overridden_heritable_keys)
+      hashmap.define_singleton_method(:_overridden_heritable_keys) { overridden_keys }
+    end
+
+    if _at_root || !overridden_keys.include?(key)
       hashmap[key] = value
 
       subclasses.each do |klass|
