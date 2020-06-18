@@ -286,6 +286,13 @@ module Rails
             version
           end
         end
+
+        def to_s
+          [ ("\n# #{comment}\n" if comment),
+            ("# " if commented_out), "gem '#{name}'", (", '#{version}'" if version),
+            *options.map { |key, val| ", #{key}: #{val.inspect.tr('"', "'")}" }
+          ].compact.join
+        end
       end
 
       def rails_prerelease?

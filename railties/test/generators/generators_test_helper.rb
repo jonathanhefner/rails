@@ -30,12 +30,6 @@ module GeneratorsTestHelper
   include ActiveSupport::Testing::Stream
   include ActiveSupport::Testing::MethodCallAssertions
 
-  GemfileEntry = Struct.new(:name, :version, :comment, :options, :commented_out) do
-    def initialize(name, version, comment, options = {}, commented_out = false)
-      super
-    end
-  end
-
   def self.included(base)
     base.class_eval do
       destination File.join(Rails.root, "tmp")
