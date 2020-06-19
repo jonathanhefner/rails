@@ -795,7 +795,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_using_prerelease [destination_root, "--dev"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -804,7 +804,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_edge_option
-    run_generator [destination_root, "--edge"]
+    run_generator_using_prerelease [destination_root, "--edge"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -813,7 +813,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_main_option
-    run_generator [destination_root, "--main"]
+    run_generator_using_prerelease [destination_root, "--main"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -844,48 +844,6 @@ class AppGeneratorTest < Rails::Generators::TestCase
         quietly { generator.invoke_all }
       end
     end
-  end
-
-  def test_dev_option
-    generator([destination_root], dev: true, skip_webpack_install: true)
-    run_generator_instance
-
-    assert_equal 1, @bundle_commands.count("install")
-    rails_path = File.expand_path("../../..", Rails.root)
-    assert_file "Gemfile", /^gem\s+["']rails["'],\s+path:\s+["']#{Regexp.escape(rails_path)}["']$/
-  end
-
-  def test_edge_option
-    Rails.stub(:gem_version, Gem::Version.new("2.1.0")) do
-      generator([destination_root], edge: true, skip_webpack_install: true)
-      run_generator_instance
-    end
-
-    assert_equal 1, @bundle_commands.count("install")
-    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']2-1-stable["']$}
-  end
-
-  def test_edge_option_during_alpha
-    Rails.stub(:gem_version, Gem::Version.new("2.1.0.alpha")) do
-      generator([destination_root], edge: true, skip_webpack_install: true)
-      run_generator_instance
-    end
-
-    assert_equal 1, @bundle_commands.count("install")
-    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']main["']$}
-  end
-
-  def test_master_option
-    run_generator [destination_root, "--master"]
-    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']main["']$}
-  end
-
-  def test_main_option
-    generator([destination_root], main: true, skip_webpack_install: true)
-    run_generator_instance
-
-    assert_equal 1, @bundle_commands.count("install")
-    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']main["']$}
   end
 
   def test_spring
@@ -937,7 +895,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_spring_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_using_prerelease [destination_root, "--dev"]
 
     assert_no_gem "spring"
   end
@@ -1060,7 +1018,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_bootsnap_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_using_prerelease [destination_root, "--dev"]
 
     assert_no_gem "bootsnap"
     assert_file "config/boot.rb" do |content|
