@@ -204,18 +204,18 @@ class PluginGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_dev_option
-    assert_generates_without_bundler(dev: true)
+    run_generator_as_prerelease [destination_root, "--dev"]
     rails_path = File.expand_path("../../..", Rails.root)
     assert_file "Gemfile", /^gem\s+["']rails["'],\s+path:\s+["']#{Regexp.escape(rails_path)}["']$/
   end
 
   def test_edge_option
-    assert_generates_without_bundler(edge: true)
+    run_generator_as_prerelease [destination_root, "--edge"]
     assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["']$}
   end
 
   def test_generation_does_not_run_bundle_install_with_full_and_mountable
-    assert_generates_without_bundler(mountable: true, full: true, dev: true)
+    assert_generates_without_bundler(mountable: true, full: true)
     assert_no_file "#{destination_root}/Gemfile.lock"
   end
 

@@ -4,6 +4,7 @@ require "fileutils"
 require "digest/md5"
 require "rails/version" unless defined?(Rails::VERSION)
 require "open-uri"
+require "tmpdir"
 require "uri"
 require "rails/generators"
 require "active_support/core_ext/array/extract_options"
@@ -110,7 +111,8 @@ module Rails
                                            desc: "Show this help message and quit"
       end
 
-      def initialize(*args)
+      def initialize(positional_argv, option_argv, *)
+        @argv = [*positional_argv, *option_argv]
         @gem_filter    = lambda { |gem| true }
         @extra_entries = []
         super
@@ -301,21 +303,14 @@ module Rails
 
       def rails_gemfile_entry
         if options.dev?
-          [
-            GemfileEntry.path("rails", Rails::Generators::RAILS_DEV_PATH)
-          ]
+          GemfileEntry.path("rails", Rails::Generators::RAILS_DEV_PATH)
         elsif options.edge?
-          [
-            GemfileEntry.github("rails", "rails/rails")
-          ]
+          GemfileEntry.github("rails", "rails/rails")
         elsif options.master?
-          [
-            GemfileEntry.github("rails", "rails/rails", "master")
-          ]
+          GemfileEntry.github("rails", "rails/rails", "master")
         else
-          [GemfileEntry.version("rails",
-                            rails_version_specifier,
-                            "Bundle edge Rails instead: gem 'rails', github: 'rails/rails'")]
+          GemfileEntry.version("rails", rails_version_specifier,
+            "Bundle edge Rails instead: gem 'rails', github: 'rails/rails'")
         end
       end
 
@@ -392,6 +387,7 @@ module Rails
 
         require "bundler"
         Bundler.with_original_env do
+          ENV["BUNDLE_GEMFILE"] = nil
           exec_bundle_command(_bundle_command, command, env)
         end
       end
@@ -431,6 +427,31 @@ module Rails
 
       def os_supports_listen_out_of_the_box?
         /darwin|linux/.match?(RbConfig::CONFIG["host_os"])
+      end
+
+      def target_rails_prerelease(self_command = "new")
+        gemfile = "rails_prerelease.gemfile"
+
+        if ENV["BUNDLE_GEMFILE"]&.end_with?(gemfile)
+          ENV["BUNDLE_GEMFILE"] = nil
+        elsif rails_prerelease?
+          Dir.mktmpdir do |dir|
+            gemfile = File.join(dir, gemfile)
+
+            File.write(gemfile, <<~GEMFILE)
+              source "https://rubygems.org"
+              git_source(:github) { |repo| "https://github.com/\#{repo}.git" }
+              #{rails_gemfile_entry}
+            GEMFILE
+
+            bundle_command("install", "BUNDLE_GEMFILE" => gemfile)
+
+            require "shellwords"
+            bundle_command("exec rails #{self_command} #{Shellwords.join(@argv)}", "BUNDLE_GEMFILE" => gemfile)
+          end
+
+          exit
+        end
       end
 
       def run_bundle

@@ -780,7 +780,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_as_prerelease [destination_root, "--dev"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -789,7 +789,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_edge_option
-    run_generator [destination_root, "--edge"]
+    run_generator_as_prerelease [destination_root, "--edge"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -798,7 +798,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_web_console_with_master_option
-    run_generator [destination_root, "--master"]
+    run_generator_as_prerelease [destination_root, "--master"]
 
     assert_file "Gemfile" do |content|
       assert_match(/gem 'web-console',\s+github: 'rails\/web-console'/, content)
@@ -831,24 +831,21 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_dev_option
-    generator([destination_root], dev: true, skip_webpack_install: true)
+    run_generator_as_prerelease [destination_root, "--dev"]
 
-    assert_bundler_command_called("install")
     rails_path = File.expand_path("../../..", Rails.root)
     assert_file "Gemfile", /^gem\s+["']rails["'],\s+path:\s+["']#{Regexp.escape(rails_path)}["']$/
   end
 
   def test_edge_option
-    generator([destination_root], edge: true, skip_webpack_install: true)
+    run_generator_as_prerelease [destination_root, "--edge"]
 
-    assert_bundler_command_called("install")
     assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["']$}
   end
 
   def test_master_option
-    generator([destination_root], master: true, skip_webpack_install: true)
+    run_generator_as_prerelease [destination_root, "--master"]
 
-    assert_bundler_command_called("install")
     assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']master["']$}
   end
 
@@ -899,7 +896,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_spring_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_as_prerelease [destination_root, "--dev"]
 
     assert_no_gem "spring"
   end
@@ -1006,7 +1003,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_bootsnap_with_dev_option
-    run_generator [destination_root, "--dev", "--skip-bundle"]
+    run_generator_as_prerelease [destination_root, "--dev"]
 
     assert_no_gem "bootsnap"
     assert_file "config/boot.rb" do |content|

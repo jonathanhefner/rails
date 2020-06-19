@@ -86,6 +86,29 @@ module GeneratorsTestHelper
     erb.result(context.new.instance_eval("binding"))
   end
 
+  def run_generator_as_prerelease(args)
+    args |= %w[--skip-bundle --skip-webpack-install]
+
+    bundle_commands = []
+    bundle_command_stub = ->(command, env) do
+      bundle_commands << command
+      assert_file env["BUNDLE_GEMFILE"], /^gem ["']rails["'], [a-z_]+: /
+    end
+
+    option_args, positional_args = args.partition { |arg| arg.start_with?("--") }
+
+    generator(positional_args, option_args).stub :bundle_command, bundle_command_stub do
+      generator.stub :exit, nil do
+        quietly { generator.invoke_all }
+      end
+    end
+
+    assert_equal 2, bundle_commands.length
+    assert_equal "install", bundle_commands.first
+    require "shellwords"
+    assert_match %r"^exec rails .+ #{Regexp.escape(Shellwords.join(args))}", bundle_commands.last
+  end
+
   private
     def gemfile_locals
       {

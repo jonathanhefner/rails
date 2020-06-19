@@ -200,6 +200,10 @@ task default: :test
         super
       end
 
+      def target_rails_prerelease
+        super("plugin new")
+      end
+
       public_task :set_default_accessors!
       public_task :create_root
 
