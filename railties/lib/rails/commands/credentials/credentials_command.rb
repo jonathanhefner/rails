@@ -60,7 +60,6 @@ module Rails
 
           say credentials.read.presence || credentials.content_path.read
         else
-          require_application!
           enroll_project_in_credentials_diffing if options[:enroll]
         end
       rescue ActiveSupport::MessageEncryptor::InvalidMessage

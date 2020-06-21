@@ -36,6 +36,6 @@ module Rails::Command::CredentialsCommand::Diffing # :nodoc:
     end
 
     def gitattributes
-      Rails.root.join(".gitattributes")
+      @gitattributes ||= Pathname(`git rev-parse --show-toplevel`.chomp).join(".gitattributes")
     end
 end
