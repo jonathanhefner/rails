@@ -85,6 +85,8 @@ module Rails
           Pathname.new(ENGINE_ROOT)
         elsif defined?(APP_PATH)
           Pathname.new(File.expand_path("../..", APP_PATH))
+        else
+          Pathname.pwd
         end
       end
 

@@ -124,6 +124,7 @@ class Rails::Command::CredentialsCommandTest < ActiveSupport::TestCase
 
 
   test "diff enroll diffing" do
+    FileUtils.rm(app_path(".gitattributes"))
     assert_match("successfully enrolled", run_diff_command(enroll: true))
 
     assert_equal <<~EOM, File.read(app_path(".gitattributes"))

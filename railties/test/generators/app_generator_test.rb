@@ -606,6 +606,21 @@ class AppGeneratorTest < Rails::Generators::TestCase
     assert_file "Gemfile", /^# gem 'redis'/
   end
 
+  def test_generator_configures_decrypted_diffs_by_default
+    run_generator
+    assert_file ".gitattributes", /\.enc diff=/
+  end
+
+  def test_generator_does_not_configure_decrypted_diffs_if_skip_decrypted_diffs_is_given
+    run_generator [destination_root, "--skip-decrypted-diffs"]
+    assert_no_file ".gitattributes"
+  end
+
+  def test_generator_does_not_configure_decrypted_diffs_if_skip_git_is_given
+    run_generator [destination_root, "--skip-git"]
+    assert_no_file ".gitattributes"
+  end
+
   def test_generator_if_skip_test_is_given
     run_generator [destination_root, "--skip-test"]
 
@@ -905,7 +920,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_skip_javascript_option
-    command_check = -> command, *_ do
+    command_check = -> command, * do
       if command == "webpacker:install"
         flunk "`webpacker:install` expected to not be called."
       end
@@ -927,7 +942,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
     webpacker_called = 0
     react_called = 0
 
-    command_check = -> command, *_ do
+    command_check = -> command, * do
       case command
       when "webpacker:install"
         webpacker_called += 1
@@ -948,7 +963,7 @@ class AppGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_skip_webpack_install
-    command_check = -> command do
+    command_check = -> command, * do
       if command == "webpacker:install"
         flunk "`webpacker:install` expected to not be called."
       end
