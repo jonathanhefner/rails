@@ -4,6 +4,7 @@ require "set"
 require "pathname"
 require "concurrent/atomic/atomic_boolean"
 require "listen"
+require "active_support/fork_tracker"
 
 module ActiveSupport
   # Allows you to "listen" to changes in a file system.
@@ -50,32 +51,20 @@ module ActiveSupport
       @block      = block
       @updated    = Concurrent::AtomicBoolean.new(false)
       @lcsp       = @ph.longest_common_subpath(@dirs.keys)
-      @pid        = Process.pid
       @boot_mutex = Mutex.new
 
-      dtw = directories_to_watch
-      @dtw, @missing = dtw.partition(&:exist?)
+      @dtw = directories_to_watch
+      @missing = []
 
       boot!
+      ActiveSupport::ForkTracker.after_fork { boot! }
     end
 
     def updated?
-      @boot_mutex.synchronize do
-        if @pid != Process.pid
-          boot!
-          @pid = Process.pid
-          @updated.make_true
-        end
-      end
-
       if @missing.any?(&:exist?)
         @boot_mutex.synchronize do
-          appeared, @missing = @missing.partition(&:exist?)
           shutdown!
-
-          @dtw += appeared
           boot!
-
           @updated.make_true
         end
       end
@@ -98,8 +87,8 @@ module ActiveSupport
 
     private
       def boot!
+        @dtw, @missing = [*@dtw, *@missing].partition(&:exist?)
         normalize_dirs!
-
         Listen.to(*@dtw, &method(:changed)).start if @dtw.any?
       end
 
