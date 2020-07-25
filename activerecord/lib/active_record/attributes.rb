@@ -215,12 +215,13 @@ module ActiveRecord
       # methods in ActiveModel::Type::Value for more details.
       def attribute(name, cast_type = nil, **options, &block)
         name = name.to_s
+        cast_type ||= deferred_attribute_definitions[name]&.first
+
         reset_attributes
 
-        self.deferred_attribute_definitions =
-          deferred_attribute_definitions.merge(
-            name => [cast_type || block, options]
-          )
+        self.deferred_attribute_definitions = deferred_attribute_definitions.merge(
+          name => [cast_type, options, block]
+        )
       end
 
       # This is the low level API which sits beneath +attribute+. It only
@@ -264,16 +265,15 @@ module ActiveRecord
         end
 
         def add_deferred_to_attribute_set(attribute_set)
-          deferred_attribute_definitions.reduce(attribute_set) do |set, (name, (type, options))|
-            case type
-            when Symbol
+          deferred_attribute_definitions.reduce(attribute_set) do |set, (name, (type, options, transform))|
+            if type.is_a?(Symbol)
               adapter_name = ActiveRecord::Type.adapter_name_from(self)
               type = ActiveRecord::Type.lookup(type, **options.except(:default), adapter: adapter_name)
-            when Proc
-              type = type[attribute_set[name].type]
-            else
-              type ||= attribute_set[name].type
+            elsif type.nil?
+              type = attribute_set[name].type
             end
+
+            type = transform[type] if transform
 
             add_attribute_to_attribute_set(set, name, type, **options.slice(:default))
           end
@@ -283,18 +283,6 @@ module ActiveRecord
           @default_attributes = nil
           @attribute_types = nil
           subclasses.each { |klass| klass.send(__method__) }
-        end
-
-        def _lookup_cast_type(name, type, options)
-          case type
-          when Symbol
-            adapter_name = ActiveRecord::Type.adapter_name_from(self)
-            ActiveRecord::Type.lookup(type, **options.except(:default), adapter: adapter_name)
-          when Proc
-            type[type_for_attribute(name)]
-          else
-            type || type_for_attribute(name)
-          end
         end
     end
   end
