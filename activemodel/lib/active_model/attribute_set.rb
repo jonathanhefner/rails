@@ -6,7 +6,7 @@ require "active_model/attribute_set/yaml_encoder"
 
 module ActiveModel
   class AttributeSet # :nodoc:
-    delegate :each, :each_value, :fetch, :except, to: :attributes
+    delegate :each_value, :fetch, :except, to: :attributes
 
     def initialize(attributes = {})
       @attributes = attributes
@@ -22,6 +22,10 @@ module ActiveModel
 
     def values_before_type_cast
       attributes.transform_values(&:value_before_type_cast)
+    end
+
+    def cast_types
+      attributes.transform_values(&:type)
     end
 
     def to_hash

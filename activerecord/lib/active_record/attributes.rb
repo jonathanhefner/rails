@@ -16,8 +16,9 @@ module ActiveRecord
       end
 
       def attribute_types # :nodoc:
-        @attribute_types ||= _default_attributes.each.to_h.transform_values(&:type).
-          tap { |hash| hash.default = Type.default_value }
+        @attribute_types ||= _default_attributes.cast_types.tap do |hash|
+          hash.default = Type.default_value
+        end
       end
 
       # Defines an attribute with a type on this model. It will override the
