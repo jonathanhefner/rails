@@ -14,7 +14,7 @@ After reading this guide, you will know:
 * How to build features for the engine.
 * How to hook the engine into an application.
 * How to override engine functionality in the application.
-* Avoid loading Rails frameworks with Load and Configuration Hooks
+* How to avoid loading Rails frameworks with Load and Configuration Hooks
 
 --------------------------------------------------------------------------------
 

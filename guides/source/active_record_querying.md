@@ -856,9 +856,8 @@ The SQL that would be executed:
 ```sql
 SELECT * FROM books WHERE id > 100 LIMIT 20
 
-# Original query without `unscope`
+-- Original query without `unscope`
 SELECT * FROM books WHERE id > 100 ORDER BY id desc LIMIT 20
-
 ```
 
 You can also unscope specific `where` clauses. For example, this will remove `id` condition from the where clause:
@@ -888,9 +887,8 @@ The SQL that would be executed:
 ```sql
 SELECT * FROM books WHERE id > 10 ORDER BY id DESC
 
-# Original query without `only`
+-- Original query without `only`
 SELECT * FROM books WHERE id > 10 ORDER BY id DESC LIMIT 20
-
 ```
 
 ### `reselect`
@@ -1849,7 +1847,7 @@ This method will return an instance of `ActiveRecord::Result` class and calling 
 object would return you an array of hashes where each hash indicates a record.
 
 ```ruby
-Customer.connection.select_all("SELECT first_name, created_at FROM customers WHERE id = '1'").to_hash
+Customer.connection.select_all("SELECT first_name, created_at FROM customers WHERE id = '1'").to_a
 # => [
 #   {"first_name"=>"Rafael", "created_at"=>"2012-11-10 23:23:45.281189"},
 #   {"first_name"=>"Eileen", "created_at"=>"2013-12-09 11:22:35.221282"}
@@ -1894,7 +1892,7 @@ Customer.pluck(:id, :first_name)
 
 Unlike `select`, `pluck` directly converts a database result into a Ruby `Array`,
 without constructing `ActiveRecord` objects. This can mean better performance for
-a large or often-running query. However, any model method overrides will
+a large or frequently-run query. However, any model method overrides will
 not be available. For example:
 
 ```ruby
@@ -1914,7 +1912,7 @@ Customer.pluck(:first_name)
 You are not limited to querying fields from a single table, you can query multiple tables as well.
 
 ```
-Order.joins(:customer, :books).pluck("orders.created_at, customers.email,  books.title")
+Order.joins(:customer, :books).pluck("orders.created_at, customers.email, books.title")
 ```
 
 Furthermore, unlike `select` and other `Relation` scopes, `pluck` triggers an immediate

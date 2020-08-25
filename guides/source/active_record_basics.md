@@ -120,7 +120,7 @@ to Active Record instances:
   locking](https://api.rubyonrails.org/classes/ActiveRecord/Locking.html) to
   a model.
 * `type` - Specifies that the model uses [Single Table
-  Inheritance](https://api.rubyonrails.org/classes/ActiveRecord/Base.html#class-ActiveRecord::Base-label-Single+table+inheritance).
+  Inheritance](https://api.rubyonrails.org/classes/ActiveRecord/Inheritance.html).
 * `(association_name)_type` - Stores the type for
   [polymorphic associations](association_basics.html#polymorphic-associations).
 * `(table_name)_count` - Used to cache the number of belonging objects on
@@ -361,9 +361,8 @@ Migrations
 ----------
 
 Rails provides a domain-specific language for managing a database schema called
-migrations. Migrations are stored in files which are executed against any
-database that Active Record supports using `rake`. Here's a migration that
-creates a table:
+migrations. Migrations are stored in files which are executed against the
+database. Here's a migration that creates a table:
 
 ```ruby
 class CreatePublications < ActiveRecord::Migration[6.0]
@@ -384,7 +383,7 @@ end
 ```
 
 Rails keeps track of which files have been committed to the database and
-provides rollback features. To actually create the table, you'd run `bin/rails db:migrate`
+provides rollback features. To actually create the table, you'd run `bin/rails db:migrate`,
 and to roll it back, `bin/rails db:rollback`.
 
 Note that the above code is database-agnostic: it will run in MySQL,

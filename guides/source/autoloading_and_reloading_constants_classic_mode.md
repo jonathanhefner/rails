@@ -479,8 +479,8 @@ How files are autoloaded depends on `eager_load` and `cache_classes` config sett
 
 What is described above are the defaults with a newly generated Rails app.
 There are multiple ways this can be configured differently (see [Configuring
-Rails Applications](configuring.html#rails-general-configuration).). Before
-Rails 5 developers might configure `autoload_paths` to add in extra locations
+Rails Applications](configuring.html#rails-general-configuration)). In the past, before
+Rails 5, developers might configure `autoload_paths` to add in extra locations
 (e.g. `lib` which used to be an autoload path list years ago, but no longer
 is). However this is now discouraged for most purposes, as it is likely to
 lead to production-only errors. It is possible to add new locations to both
