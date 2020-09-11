@@ -42,16 +42,15 @@ module ActionText
       end
     end
 
-    initializer "action_text.renderer" do |app|
-      app.executor.to_run      { ActionText::Content.renderer = ApplicationController.renderer }
-      app.executor.to_complete { ActionText::Content.renderer = ApplicationController.renderer }
-
-      ActiveSupport.on_load(:action_text_content) do
-        self.renderer = ApplicationController.renderer
+    initializer "action_text.rendering" do
+      ActiveSupport.on_load(:action_text_rendering) do
+        self.callable = Class.new(ActionController::Base).renderer.method(:render)
       end
 
-      ActiveSupport.on_load(:action_controller_base) do
-        before_action { ActionText::Content.renderer = ApplicationController.renderer.new(request.env) }
+      ActiveSupport.on_load(:action_controller) do
+        around_action do |controller, action|
+          ActionText::Rendering.with_callable(controller.method(:render_to_string), &action)
+        end
       end
     end
 
