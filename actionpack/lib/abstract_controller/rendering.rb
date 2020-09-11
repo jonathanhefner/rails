@@ -68,6 +68,20 @@ module AbstractController
       end
     end
 
+    class StringRenderer # :nodoc:
+      def initialize(instance)
+        @instance = instance
+      end
+
+      def render(*args, &block)
+        @instance.render_to_string(*args, &block)
+      end
+    end
+
+    def string_renderer # :nodoc:
+      StringRenderer.new(self)
+    end
+
   private
     # Normalize args by converting <tt>render "foo"</tt> to
     # <tt>render :action => "foo"</tt> and <tt>render "foo/bar"</tt> to

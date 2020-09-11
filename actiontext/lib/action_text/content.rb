@@ -13,6 +13,14 @@ module ActionText
     delegate :blank?, :empty?, :html_safe, :present?, to: :to_html # Delegating to to_html to avoid including the layout
 
     class << self
+      def with_renderer(renderer)
+        previous_renderer = self.renderer
+        self.renderer = renderer
+        yield
+      ensure
+        self.renderer = previous_renderer
+      end
+
       def fragment_by_canonicalizing_content(content)
         fragment = ActionText::Attachment.fragment_by_canonicalizing_attachments(content)
         fragment = ActionText::AttachmentGallery.fragment_by_canonicalizing_attachment_galleries(fragment)
