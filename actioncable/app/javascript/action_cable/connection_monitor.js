@@ -71,13 +71,16 @@ class ConnectionMonitor {
       this.reconnectIfStale()
       this.poll()
     }
-    , this.getPollInterval())
+    , this.getPollInterval(this.constructor.pollJitter))
   }
 
-  getPollInterval() {
+  getPollInterval(jitter = 0.0) {
     const {min, max, multiplier} = this.constructor.pollInterval
     const interval = multiplier * Math.log(this.reconnectAttempts + 1)
-    return Math.round(clamp(interval, min, max) * 1000)
+    if (jitter > 0) {
+      jitter *= Math.random()
+    }
+    return Math.round(clamp(interval, min, max) * (1 + jitter) * 1000)
   }
 
   reconnectIfStale() {
@@ -120,6 +123,8 @@ ConnectionMonitor.pollInterval = {
   max: 30,
   multiplier: 5
 }
+
+ConnectionMonitor.pollJitter = 0.15
 
 ConnectionMonitor.staleThreshold = 6 // Server::Connections::BEAT_INTERVAL * 2 (missed two pings)
 
