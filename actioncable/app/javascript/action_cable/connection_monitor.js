@@ -7,8 +7,6 @@ const now = () => new Date().getTime()
 
 const secondsSince = time => (now() - time) / 1000
 
-const clamp = (number, min, max) => Math.max(min, Math.min(max, number))
-
 class ConnectionMonitor {
   constructor(connection) {
     this.visibilityDidChange = this.visibilityDidChange.bind(this)
@@ -22,7 +20,7 @@ class ConnectionMonitor {
       delete this.stoppedAt
       this.startPolling()
       addEventListener("visibilitychange", this.visibilityDidChange)
-      logger.log(`ConnectionMonitor started. pollInterval = ${this.getPollInterval()} ms`)
+      logger.log(`ConnectionMonitor started. stale threshold = ${this.constructor.staleThreshold} s`)
     }
   }
 
@@ -75,17 +73,20 @@ class ConnectionMonitor {
   }
 
   getPollInterval() {
-    const {min, max, multiplier} = this.constructor.pollInterval
-    const interval = multiplier * Math.log(this.reconnectAttempts + 1)
-    return Math.round(clamp(interval, min, max) * 1000)
+    const interval = this.constructor.staleThreshold
+    const backoff = this.constructor.reconnectionBackoff
+    const exponent = Math.min(this.reconnectAttempts, 10)
+    const jitter = this.reconnectAttempts > 0 ? backoff - 1 : 1
+    const seconds = interval * Math.pow(backoff, exponent) * (1 + jitter * Math.random())
+    return seconds * 1000
   }
 
   reconnectIfStale() {
     if (this.connectionIsStale()) {
-      logger.log(`ConnectionMonitor detected stale connection. reconnectAttempts = ${this.reconnectAttempts}, pollInterval = ${this.getPollInterval()} ms, time disconnected = ${secondsSince(this.disconnectedAt)} s, stale threshold = ${this.constructor.staleThreshold} s`)
+      logger.log(`ConnectionMonitor detected stale connection. reconnectAttempts = ${this.reconnectAttempts}, time stale = ${secondsSince(this.refreshedAt)} s, stale threshold = ${this.constructor.staleThreshold} s`)
       this.reconnectAttempts++
       if (this.disconnectedRecently()) {
-        logger.log("ConnectionMonitor skipping reopening recent disconnect")
+        logger.log(`ConnectionMonitor skipping reopening recent disconnect. time disconnected = ${secondsSince(this.disconnectedAt)} s`)
       } else {
         logger.log("ConnectionMonitor reopening")
         this.connection.reopen()
@@ -93,8 +94,12 @@ class ConnectionMonitor {
     }
   }
 
+  get refreshedAt() {
+    return this.pingedAt ? this.pingedAt : this.startedAt
+  }
+
   connectionIsStale() {
-    return secondsSince(this.pingedAt ? this.pingedAt : this.startedAt) > this.constructor.staleThreshold
+    return secondsSince(this.refreshedAt) > this.constructor.staleThreshold
   }
 
   disconnectedRecently() {
@@ -115,12 +120,7 @@ class ConnectionMonitor {
 
 }
 
-ConnectionMonitor.pollInterval = {
-  min: 3,
-  max: 30,
-  multiplier: 5
-}
-
 ConnectionMonitor.staleThreshold = 6 // Server::Connections::BEAT_INTERVAL * 2 (missed two pings)
+ConnectionMonitor.reconnectionBackoff = 1.15
 
 export default ConnectionMonitor
