@@ -1,3 +1,16 @@
+*   The Action Cable client now includes safeguards to prevent a "thundering
+    herd" of client reconnects after server connectivity loss:
+
+    * After the stale threshold is reached for a connection, there is an initial
+      random delay of 0 to 2 * `ActionCable.ConnectionMonitor.pollInterval.min`
+      seconds before the first reconnection attempt.
+    * Subsequent reconnection attempts now use exponential backoff instead of
+      logarithmic backoff.  To allow the delay between reconnection attempts to
+      increase slowly at first, the default exponentiation base is < 2.
+    * Random jitter is applied to each delay between reconnection attempts.
+
+    *Jonathan Hefner*
+
 *   `ActionCable::Connection::Base` now allows intercepting unhandled exceptions
     with `rescue_from` before they are logged, which is useful for error reporting
     tools and other integrations.
