@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
+require "pathname"
+require "active_support/backtrace_cleaner"
 require "active_support/core_ext/module/attribute_accessors"
+require "active_support/core_ext/object/try"
 require "rails/test_unit/reporter"
 require "rails/test_unit/runner"
 
@@ -39,8 +42,12 @@ module Minitest
   # minitest-reporters, maxitest and others.
   def self.plugin_rails_init(options)
     unless options[:full_backtrace] || ENV["BACKTRACE"]
-      # Plugin can run without Rails loaded, check before filtering.
-      Minitest.backtrace_filter = ::Rails.backtrace_cleaner if ::Rails.respond_to?(:backtrace_cleaner)
+      # Can use in a Rails plugin test suite or without Rails loaded.
+      if Pathname.pwd == ::Rails.try(:root)
+        Minitest.backtrace_filter = ::Rails.backtrace_cleaner
+      else
+        Minitest.backtrace_filter = ActiveSupport::BacktraceCleaner.new
+      end
     end
 
     # Suppress summary reports when outputting inline rerun snippets.
