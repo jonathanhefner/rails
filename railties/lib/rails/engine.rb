@@ -422,6 +422,8 @@ module Rails
       end
     end
 
+    attr_reader :reloader, :executor
+
     delegate :middleware, :root, :paths, to: :config
     delegate :engine_name, :isolated?, to: :class
 
@@ -559,13 +561,12 @@ module Rails
     # Blog::Engine.load_seed
     def load_seed
       seed_file = paths["db/seeds.rb"].existent.first
-      return unless seed_file
+      executor.wrap { load(seed_file) } if seed_file
+    end
 
-      if config.try(:active_job)&.queue_adapter == :async
-        with_inline_jobs { load(seed_file) }
-      else
-        load(seed_file)
-      end
+    initializer :set_executor, before: :load_environment_hook do |app|
+      @executor = app.executor
+      @reloader = app.reloader
     end
 
     initializer :load_environment_config, before: :load_environment_hook, group: :all do
@@ -675,18 +676,6 @@ module Rails
       def load_config_initializer(initializer) # :doc:
         ActiveSupport::Notifications.instrument("load_config_initializer.railties", initializer: initializer) do
           load(initializer)
-        end
-      end
-
-      def with_inline_jobs
-        queue_adapter = config.active_job.queue_adapter
-        ActiveSupport.on_load(:active_job) do
-          self.queue_adapter = :inline
-        end
-        yield
-      ensure
-        ActiveSupport.on_load(:active_job) do
-          self.queue_adapter = queue_adapter
         end
       end
 
