@@ -131,37 +131,33 @@ class Class
     attrs.each { |name| public_send("#{name}=", default) }
   end
 
-  def update_heritable_value_of(attr, key, value, _at_root = true) # :nodoc:
+  def update_heritable_value_of(attr, key, value, superclass_hashmap = nil) # :nodoc:
     hashmap = self.send(attr)
-    overridden_keys = (hashmap._overridden_heritable_keys if hashmap.respond_to?(:_overridden_heritable_keys))
+    return if hashmap.equal?(superclass_hashmap)
+    overridden_keys = hashmap._overridden_heritable_keys if hashmap.respond_to?(:_overridden_heritable_keys)
 
-    if _at_root
-      if superclass.respond_to?(attr)
-        superclass_hashmap = superclass.send(attr)
-        if hashmap.equal?(superclass_hashmap)
-          hashmap = self.send(:"#{attr}=", hashmap.dup)
-          overridden_keys = nil
-        end
-        # Avoid allocating `overridden_keys` when superclass hashmap is empty.
-        (overridden_keys ||= Set.new) << key unless superclass_hashmap.empty?
-      end
-    else
+    if superclass_hashmap
       # We're in a recursive call, which means superclass hashmap is now
       # non-empty, so backfill `overridden_keys` as necessary.
       overridden_keys ||= Set.new(hashmap.keys)
+    elsif superclass.respond_to?(attr)
+      if hashmap.equal?(superclass.send(attr))
+        hashmap = self.send(:"#{attr}=", hashmap.dup)
+        # Avoid allocating `overridden_keys` when superclass hashmap is empty.
+        overridden_keys = hashmap.empty? ? nil : Set.new
+      end
+      overridden_keys&.add(key)
     end
 
     if overridden_keys && !hashmap.respond_to?(:_overridden_heritable_keys)
-      hashmap.define_singleton_method(:_overridden_heritable_keys) { overridden_keys }
+      hashmap.define_singleton_method(:_overridden_heritable_keys, &overridden_keys.method(:itself))
     end
 
-    if _at_root || !overridden_keys.include?(key)
+    unless superclass_hashmap && overridden_keys.include?(key)
       hashmap[key] = value
 
       subclasses.each do |klass|
-        unless klass.send(attr).equal?(hashmap)
-          klass.update_heritable_value_of(attr, key, value, false)
-        end
+        klass.update_heritable_value_of(attr, key, value, hashmap)
       end
     end
 
