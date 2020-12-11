@@ -131,6 +131,7 @@ module ActiveRecord
       end
 
       def clear_reflections_cache # :nodoc:
+        direct_descendants.each(&:clear_reflections_cache)
         @__reflections = nil
       end
     end
