@@ -134,7 +134,7 @@ class Class
   def update_heritable_value_of(attr, key, value, superclass_hashmap = nil) # :nodoc:
     hashmap = self.send(attr)
     return if hashmap.equal?(superclass_hashmap)
-    overridden_keys = hashmap._overridden_heritable_keys if hashmap.respond_to?(:_overridden_heritable_keys)
+    overridden_keys = hashmap.instance_variable_get(:@_overridden_heritable_keys)
 
     if superclass_hashmap
       # We're in a recursive call, which means superclass hashmap is now
@@ -149,9 +149,7 @@ class Class
       overridden_keys&.add(key)
     end
 
-    if overridden_keys && !hashmap.respond_to?(:_overridden_heritable_keys)
-      hashmap.define_singleton_method(:_overridden_heritable_keys, &overridden_keys.method(:itself))
-    end
+    hashmap.instance_variable_set(:@_overridden_heritable_keys, overridden_keys)
 
     unless superclass_hashmap && overridden_keys.include?(key)
       hashmap[key] = value
