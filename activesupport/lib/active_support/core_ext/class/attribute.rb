@@ -134,29 +134,27 @@ class Class
   def update_heritable_value_of(attr, key, value, superclass_hashmap = nil) # :nodoc:
     hashmap = self.send(attr)
     return if hashmap.equal?(superclass_hashmap)
-    overridden_keys = hashmap.instance_variable_get(:@_overridden_heritable_keys)
+    inherited_keys = hashmap.instance_variable_get(:@_class_attribute_inherited_keys)
 
     if superclass_hashmap
-      # We're in a recursive call, which means superclass hashmap is now
-      # non-empty, so backfill `overridden_keys` as necessary.
-      overridden_keys ||= Set.new(hashmap.keys)
+      # In a recursive call, inheriting a key
+      return if hashmap.include?(key) && !inherited_keys&.include?(key)
+      inherited_keys ||= Set.new
+      inherited_keys.add(key)
     elsif superclass.respond_to?(attr)
+      # In a root call, overriding a key
       if hashmap.equal?(superclass.send(attr))
         hashmap = self.send(:"#{attr}=", hashmap.dup)
-        # Avoid allocating `overridden_keys` when superclass hashmap is empty.
-        overridden_keys = hashmap.empty? ? nil : Set.new
+        inherited_keys = hashmap.empty? ? nil : Set.new(hashmap.keys)
       end
-      overridden_keys&.add(key)
+      inherited_keys&.delete(key)
     end
 
-    hashmap.instance_variable_set(:@_overridden_heritable_keys, overridden_keys)
+    hashmap[key] = value
+    hashmap.instance_variable_set(:@_class_attribute_inherited_keys, inherited_keys)
 
-    unless superclass_hashmap && overridden_keys.include?(key)
-      hashmap[key] = value
-
-      subclasses.each do |klass|
-        klass.update_heritable_value_of(attr, key, value, hashmap)
-      end
+    subclasses.each do |klass|
+      klass.update_heritable_value_of(attr, key, value, hashmap)
     end
 
     hashmap
