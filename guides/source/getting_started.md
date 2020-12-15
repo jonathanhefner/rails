@@ -202,7 +202,7 @@ of the files and folders that Rails creates by default:
 
 | File/Folder | Purpose |
 | ----------- | ------- |
-|app/|Contains the controllers, models, views, helpers, mailers, channels, jobs, and assets for your application. You'll focus on this folder for the remainder of this guide.|
+|app/|Contains the [controllers](action_controller_overview.html), [models](active_record_basics.html), [views](action_view_overview.html), helpers, assets, [jobs](active_job_basics.html), [mailers](action_mailer_basics.html), [channels](action_cable_overview.html), and [concerns][ActiveSupport::Concern] for your application. You'll focus on this folder for the remainder of this guide.|
 |bin/|Contains the `rails` script that starts your app and can contain other scripts you use to set up, update, deploy, or run your application.|
 |config/|Contains configuration for your application's routes, database, and more. This is covered in more detail in [Configuring Rails Applications](configuring.html).|
 |config.ru|Rack configuration for Rack-based servers used to start the application. For more information about Rack, see the [Rack website](https://rack.github.io/).|
@@ -220,6 +220,8 @@ of the files and folders that Rails creates by default:
 |vendor/|A place for all third-party code. In a typical Rails application this includes vendored gems.|
 |.gitignore|This file tells git which files (or patterns) it should ignore. See [GitHub - Ignoring files](https://help.github.com/articles/ignoring-files) for more info about ignoring files.|
 |.ruby-version|This file contains the default Ruby version.|
+
+[ActiveSupport::Concern]: https://api.rubyonrails.org/classes/ActiveSupport/Concern.html
 
 Hello, Rails!
 -------------
