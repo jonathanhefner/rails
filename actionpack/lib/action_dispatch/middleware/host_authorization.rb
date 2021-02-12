@@ -51,7 +51,7 @@ module ActionDispatch
 
         def sanitize_string(host)
           if host.start_with?(".")
-            /\A(.+\.)?#{Regexp.escape(host[1..-1])}\z/i
+            /\A(?:[a-z0-9.-]+\.)?#{Regexp.escape host[1..-1]}\z/i
           else
             /\A#{host}\z/i
           end
@@ -103,20 +103,11 @@ module ActionDispatch
 
     private
       def authorized?(request)
-        valid_host = /
-          \A
-          (?<host>[a-z0-9.-]+|\[[a-f0-9]*:[a-f0-9.:]+\])
-          (:\d+)?
-          \z
-        /x
+        origin_host = request.get_header("HTTP_HOST").to_s.sub(/:\d+\z/, "")
+        forwarded_host = request.x_forwarded_host.to_s.split(/,\s?/).last.to_s.sub(/:\d+\z/, "")
 
-        origin_host = valid_host.match(
-          request.get_header("HTTP_HOST").to_s.downcase)
-        forwarded_host = valid_host.match(
-          request.x_forwarded_host.to_s.split(/,\s?/).last)
-
-        origin_host && @permissions.allows?(origin_host[:host]) && (
-          forwarded_host.nil? || @permissions.allows?(forwarded_host[:host]))
+        @permissions.allows?(origin_host) &&
+          (forwarded_host.blank? || @permissions.allows?(forwarded_host))
       end
 
       def excluded?(request)
