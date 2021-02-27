@@ -250,11 +250,45 @@ class PluginGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_edge_option
+    original_pre = Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", nil)
+
+    generator([destination_root], edge: true)
+    run_generator_instance
+
+    assert_empty @bundle_commands
+    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']#{Rails::VERSION::MAJOR}-#{Rails::VERSION::MINOR}-stable["']$}
+  ensure
+    Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", original_pre)
+  end
+
+  def test_edge_option_with_security_release
+    original_pre = Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", "1")
+
+    generator([destination_root], edge: true)
+    run_generator_instance
+
+    assert_empty @bundle_commands
+    assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']#{Rails::VERSION::MAJOR}-#{Rails::VERSION::MINOR}-stable["']$}
+  ensure
+    Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", original_pre)
+  end
+
+  def test_edge_option_during_alpha
+    original_pre = Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", "alpha")
+
     generator([destination_root], edge: true)
     run_generator_instance
 
     assert_empty @bundle_commands
     assert_file "Gemfile", %r{^gem\s+["']rails["'],\s+github:\s+["']#{Regexp.escape("rails/rails")}["'],\s+branch:\s+["']main["']$}
+  ensure
+    Rails::VERSION.send(:remove_const, "PRE")
+    Rails::VERSION.const_set("PRE", original_pre)
   end
 
   def test_generation_does_not_run_bundle_install_with_full_and_mountable
