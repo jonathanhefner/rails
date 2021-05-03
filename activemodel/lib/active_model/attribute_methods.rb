@@ -359,35 +359,7 @@ module ActiveModel
 
       private
         class CodeGenerator # :nodoc:
-          class MethodSet
-            METHOD_CACHES = Hash.new { |h, k| h[k] = Module.new }
-
-            def initialize(namespace)
-              @cache = METHOD_CACHES[namespace]
-              @sources = []
-              @methods = {}
-            end
-
-            def define_cached_method(name, as: name)
-              name = name.to_sym
-              as = as.to_sym
-              @methods.fetch(name) do
-                unless @cache.method_defined?(as)
-                  yield @sources
-                end
-                @methods[name] = as
-              end
-            end
-
-            def apply(owner, path, line)
-              unless @sources.empty?
-                @cache.module_eval("# frozen_string_literal: true\n" + @sources.join(";"), path, line)
-              end
-              @methods.each do |name, as|
-                owner.define_method(name, @cache.instance_method(as))
-              end
-            end
-          end
+          METHOD_CACHES = Hash.new { |h, k| h[k] = Module.new }
 
           class << self
             def batch(owner, path, line)
@@ -406,16 +378,22 @@ module ActiveModel
             @owner = owner
             @path = path
             @line = line
-            @namespaces = Hash.new { |h, k| h[k] = MethodSet.new(k) }
+            @methods = {}
+            @sources = Hash.new { |h, k| h[k] = [] }
           end
 
           def define_cached_method(name, namespace:, as: name, &block)
-            @namespaces[namespace].define_cached_method(name, as: as, &block)
+            @methods[name.to_sym] = [namespace, as]
+            yield @sources[namespace] unless METHOD_CACHES[namespace].method_defined?(as)
           end
 
           def execute
-            @namespaces.each_value do |method_set|
-              method_set.apply(@owner, @path, @line - 1)
+            @sources.each do |namespace, lines|
+              METHOD_CACHES[namespace].module_eval("# frozen_string_literal: true\n" + lines.join(";"), @path, @line - 1)
+            end
+
+            @methods.each do |name, (namespace, as)|
+              @owner.define_method(name, METHOD_CACHES[namespace].instance_method(as))
             end
           end
         end
