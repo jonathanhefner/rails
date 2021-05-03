@@ -359,35 +359,29 @@ module ActiveModel
 
       private
         class CodeGenerator # :nodoc:
-          class MethodSet
-            METHOD_CACHES = Hash.new { |h, k| h[k] = Module.new }
-
-            def initialize(namespace)
-              @cache = METHOD_CACHES[namespace]
+          class MethodCache
+            def initialize
+              @mod = Module.new
               @sources = []
-              @methods = {}
             end
 
-            def define_cached_method(name, as: name)
-              name = name.to_sym
-              as = as.to_sym
-              @methods.fetch(name) do
-                unless @cache.method_defined?(as)
-                  yield @sources
-                end
-                @methods[name] = as
-              end
+            def define(method_name)
+              yield @sources unless @mod.method_defined?(method_name)
             end
 
-            def apply(owner, path, line)
+            def compile(path, line)
               unless @sources.empty?
-                @cache.module_eval("# frozen_string_literal: true\n" + @sources.join(";"), path, line)
+                @mod.module_eval("# frozen_string_literal: true\n" + @sources.join(";"), path, line)
+                @sources.clear
               end
-              @methods.each do |name, as|
-                owner.define_method(name, @cache.instance_method(as))
-              end
+            end
+
+            def get(method_name)
+              @mod.instance_method(method_name)
             end
           end
+
+          METHOD_CACHES = Hash.new { |h, k| h[k] = MethodCache.new }
 
           class << self
             def batch(owner, path, line)
@@ -406,16 +400,18 @@ module ActiveModel
             @owner = owner
             @path = path
             @line = line
-            @namespaces = Hash.new { |h, k| h[k] = MethodSet.new(k) }
+            @methods = {}
           end
 
           def define_cached_method(name, namespace:, as: name, &block)
-            @namespaces[namespace].define_cached_method(name, as: as, &block)
+            @methods[name.to_sym] = [namespace, as]
+            METHOD_CACHES[namespace].define(as, &block)
           end
 
           def execute
-            @namespaces.each_value do |method_set|
-              method_set.apply(@owner, @path, @line - 1)
+            @methods.each do |name, (namespace, as)|
+              METHOD_CACHES[namespace].compile(@path, @line - 1)
+              @owner.define_method(name, METHOD_CACHES[namespace].get(as))
             end
           end
         end
