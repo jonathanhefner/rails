@@ -29,11 +29,6 @@ class EventedFileUpdateCheckerTest < ActiveSupport::TestCase
     sleep 1
   end
 
-  def touch(files)
-    super
-    wait # wait for the events to fire
-  end
-
   test "notifies forked processes" do
     skip "Forking not available" unless Process.respond_to?(:fork)
 
@@ -64,7 +59,9 @@ class EventedFileUpdateCheckerTest < ActiveSupport::TestCase
 
     # Wait for fork to be booted before touching files.
     IO.select([boot_reader])
+
     touch(tmpfiles)
+    wait
 
     # Notify fork that files have been touched.
     touch_writer.write("touched")
@@ -142,11 +139,13 @@ class EventedFileUpdateCheckerTest < ActiveSupport::TestCase
     Dir.mkdir(dir1)
 
     touch(File.join(dir1, "a.rb"))
+    wait
     assert_predicate checker1, :updated?
 
     assert_not_predicate checker2, :updated?
 
     touch(File.join(dir2, "a.rb"))
+    wait
     assert_predicate checker2, :updated?
   end
 end
