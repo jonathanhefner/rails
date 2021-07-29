@@ -185,4 +185,39 @@ module ActiveModel
         @block.call(record, attribute, value)
       end
   end
+
+  class CompositeValidator < Validator
+    def initialize(options)
+      @model_class = options[:class]
+      @fowarded_options = options.slice(:on, :if, :unless, :strict)
+      super
+      compose
+    end
+
+    def compose
+      raise NotImplementedError, "Subclasses must implement a compose() method."
+    end
+
+    def validate(*)
+      # Rely on validations configured by #compose
+    end
+
+    private
+      def validation_method?(method)
+        method.start_with?("validates") && @model_class.respond_to?(method)
+      end
+
+      def respond_to_missing?(method, include_private = false)
+        validation_method?(method) || super
+      end
+
+      def method_missing(method, *args, &block)
+        if validation_method?(method)
+          options = @fowarded_options.merge(args.extract_options!)
+          @model_class.send(method, *args, options, &block)
+        else
+          super
+        end
+      end
+  end
 end
