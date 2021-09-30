@@ -12,6 +12,8 @@
 # Note that it can also be scoped per-fiber if +Rails.application.config.active_support.isolation_level+
 # is set to +:fiber+.
 class Module
+  NIL_OBJECT = Object.new
+
   # Defines a per-thread class attribute and creates class and instance reader methods.
   # The underlying per-thread class variable is set to +nil+, if it is not previously defined.
   #
@@ -42,12 +44,22 @@ class Module
     syms.each do |sym|
       raise NameError.new("invalid attribute name: #{sym}") unless /^[_A-Za-z]\w*$/.match?(sym)
 
+      # We're storing the default value in a class variable for it to be
+      # available through inheritance
+      class_variable_set(:"@@__attr_#{sym}_default", default)
       # The following generated method concatenates `name` because we want it
       # to work with inheritance via polymorphism.
       class_eval(<<-EOS, __FILE__, __LINE__ + 1)
         def self.#{sym}
           @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
-          ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
+          obj = ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
+
+          if obj.nil?
+            obj = @@__attr_#{sym}_default
+            ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj.nil? ? NIL_OBJECT : obj
+          end
+
+          obj == NIL_OBJECT ? nil : obj
         end
       EOS
 
@@ -91,7 +103,8 @@ class Module
       class_eval(<<-EOS, __FILE__, __LINE__ + 1)
         def self.#{sym}=(obj)
           @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
-          ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj
+          ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj.nil? ? NIL_OBJECT : obj
+          obj
         end
       EOS
 
@@ -102,8 +115,6 @@ class Module
           end
         EOS
       end
-
-      public_send("#{sym}=", default) unless default.nil?
     end
   end
   alias :thread_cattr_writer :thread_mattr_writer

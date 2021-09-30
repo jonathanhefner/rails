@@ -42,13 +42,29 @@ class ModuleAttributeAccessorPerThreadTest < ActiveSupport::TestCase
   end
 
   def test_can_initialize_with_default_value
-    Thread.new do
-      @class.thread_mattr_accessor :baz, default: "default_value"
+    @class.thread_mattr_accessor :baz, default: "default_value"
 
+    assert_equal "default_value", @class.baz
+  end
+
+  def test_default_value_is_available_in_all_threads
+    @class.thread_mattr_accessor :baz, default: "default_value"
+
+    assert_equal "default_value", @class.baz
+
+    Thread.new do
       assert_equal "default_value", @class.baz
     end.join
+  end
 
-    assert_nil @class.baz
+  def test_default_value_is_the_same_object
+    @class.thread_mattr_accessor :arr, default: []
+    @class.arr.push(1)
+    assert_equal [1], @class.arr
+
+    Thread.new do
+      assert_equal [1], @class.arr
+    end.join
   end
 
   def test_should_use_mattr_default
@@ -159,5 +175,12 @@ class ModuleAttributeAccessorPerThreadTest < ActiveSupport::TestCase
     @subclass.foo = "sub"
     assert_equal "super", @class.foo
     assert_equal "sub", @subclass.foo
+  end
+
+  def test_subclasses_have_the_default_value_after_parent_was_changed
+    @class.thread_mattr_accessor :baz, default: "default_value"
+    @class.baz = "super"
+    assert_equal "super", @class.baz
+    assert_equal "default_value", @subclass.baz
   end
 end

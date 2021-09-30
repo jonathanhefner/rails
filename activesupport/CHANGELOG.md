@@ -1,3 +1,14 @@
+*   `default` option of `thread_mattr_accessor` now applies through inheritance and
+    also across new threads.
+
+    Previously, the `default` value provided was set only at the moment of defining
+    the attribute writer, which would cause the attribute to be uninitialized in
+    descendants and in other threads.
+
+    Fixes #43312.
+
+    *Thierry Deo*
+
 *   Deprecate preserving the pre-Ruby 2.4 behavior of `to_time`
 
     With Ruby 2.4+ the default for +to_time+ changed from converting to the
