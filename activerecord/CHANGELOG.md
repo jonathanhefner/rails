@@ -1,3 +1,7 @@
+*   Fix eager loading for models without primary keys.
+
+    *Matt Lawrence*, *Anmol Chopra*
+
 *   Add ability to ignore tables by regexp for SQL schema dumps.
 
     ```ruby
@@ -31,7 +35,7 @@
 
 *   Support encrypted attributes on columns with default db values.
 
-    This adds support for encrypted attributes defined on columns with default values. 
+    This adds support for encrypted attributes defined on columns with default values.
     It will encrypt those values at creation time. Before, it would raise an
     error unless `config.active_record.encryption.support_unencrypted_data` was true.
 

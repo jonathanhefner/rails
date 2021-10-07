@@ -252,7 +252,8 @@ module ActiveRecord
               next
             end
 
-            key = aliases.column_alias(node, node.primary_key)
+            key = aliases.column_alias(node, node.primary_key || node.reflection.join_primary_key.to_s)
+
             id = row[key]
             if id.nil?
               nil_association = ar_parent.association(node.reflection.name)
@@ -260,14 +261,16 @@ module ActiveRecord
               next
             end
 
-            model = seen[ar_parent][node][id]
+            # Only cache when we have a primary key. This avoids issues when
+            # the non-unique foreign key is used as a fallback.
+            model = seen[ar_parent][node][id] if node.primary_key
 
             if model
               construct(model, node, row, seen, model_cache, strict_loading_value)
             else
               model = construct_model(ar_parent, node, row, model_cache, id, strict_loading_value)
 
-              seen[ar_parent][node][id] = model
+              seen[ar_parent][node][id] = model if node.primary_key
               construct(model, node, row, seen, model_cache, strict_loading_value)
             end
           end
@@ -276,11 +279,14 @@ module ActiveRecord
         def construct_model(record, node, row, model_cache, id, strict_loading_value)
           other = record.association(node.reflection.name)
 
-          model = model_cache[node][id] ||=
-            node.instantiate(row, aliases.column_aliases(node)) do |m|
+          unless node.primary_key && model = model_cache[node][id]
+            model = node.instantiate(row, aliases.column_aliases(node)) do |m|
               m.strict_loading! if strict_loading_value
               other.set_inverse_instance(m)
             end
+
+            model_cache[node][id] = model if node.primary_key
+          end
 
           if node.reflection.collection?
             other.target.push(model)
