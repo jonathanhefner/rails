@@ -234,6 +234,22 @@ class ParametersAccessorsTest < ActiveSupport::TestCase
     assert_not_predicate @params.slice(:person), :permitted?
   end
 
+  test "strict_slice retains permitted status" do
+    @params.permit!
+    assert_predicate @params.strict_slice(:person), :permitted?
+  end
+
+  test "strict_slice retains unpermitted status" do
+    assert_not_predicate @params.strict_slice(:person), :permitted?
+  end
+
+  test "strict_slice raises ParameterMissing exception" do
+    exception = assert_raises(ActionController::ParameterMissing) do
+      @params.strict_slice(:foo)
+    end
+    assert_equal :foo, exception.param
+  end
+
   test "transform_keys retains permitted status" do
     @params.permit!
     assert_predicate @params.transform_keys { |k| k }, :permitted?

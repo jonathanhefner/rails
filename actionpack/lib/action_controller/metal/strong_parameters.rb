@@ -702,6 +702,20 @@ module ActionController
       self
     end
 
+    # Returns a new <tt>ActionController::Parameters</tt> instance that includes
+    # only the given +keys+. If any of the given +keys+ don't exist, raises
+    # <tt>ActionController::ParameterMissing</tt>.
+    #
+    #   params = ActionController::Parameters.new(a: 1, b: 2, c: 3)
+    #   params.slice(:a, :b) # => <ActionController::Parameters {"a"=>1, "b"=>2} permitted: false>
+    #   params.slice(:d)     # => ActionController::ParameterMissing: param is missing or the value is empty: d
+    def strict_slice(*keys)
+      keys.each do |key|
+        raise ParameterMissing.new(key, @parameters.keys) unless @parameters.key?(key)
+      end
+      slice(*keys)
+    end
+
     # Returns a new <tt>ActionController::Parameters</tt> instance that
     # filters out the given +keys+.
     #
