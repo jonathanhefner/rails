@@ -11,6 +11,10 @@ module ActiveModel
 
     class << self
       attr_accessor :min_cost # :nodoc:
+
+      def create(unencrypted_password) # :nodoc:
+        BCrypt::Password.create(unencrypted_password, cost: min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost)
+      end
     end
     self.min_cost = false
 
@@ -98,8 +102,7 @@ module ActiveModel
             self.public_send("#{attribute}_digest=", nil)
           elsif !unencrypted_password.empty?
             instance_variable_set("@#{attribute}", unencrypted_password)
-            cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
-            self.public_send("#{attribute}_digest=", BCrypt::Password.create(unencrypted_password, cost: cost))
+            self.public_send("#{attribute}_digest=", ActiveModel::SecurePassword.create(unencrypted_password))
           end
         end
 
