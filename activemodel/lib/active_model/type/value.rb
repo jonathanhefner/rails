@@ -94,6 +94,30 @@ module ActiveModel
         false
       end
 
+      # Optionally wraps a cast result in a decorator object.
+      #
+      # Some types must cast a value before serializing it. This cast may be
+      # unnecessary if the value is coming from a model attribute. If casting is
+      # expensive, a type can alias this method to +wrap_cast_result+, and then
+      # call +unwrap_or_cast+ instead of +cast+ when serializing to avoid a
+      # double cast.
+      def value_was_cast(value)
+        value
+      end
+
+      CastResult = Class.new(SimpleDelegator) # :nodoc:
+
+      # Wraps a cast result in a decorator object.
+      def wrap_cast_result(value)
+        CastResult.new(value)
+      end
+
+      # If +value+ is a cast result wrapped in decorator object, unwraps it.
+      # Otherwise, casts +value+ using +cast_type+.
+      def unwrap_or_cast(value, cast_type: self)
+        value.is_a?(CastResult) ? value.__getobj__ : cast_type.cast(value)
+      end
+
       def value_constructed_by_mass_assignment?(_value) # :nodoc:
         false
       end

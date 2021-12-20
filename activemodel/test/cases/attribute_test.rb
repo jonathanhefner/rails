@@ -69,6 +69,7 @@ module ActiveModel
 
     test "from_user + read_for_database type casts from the user to the database" do
       @type.expect(:cast, "read from user", ["whatever"])
+      @type.expect(:value_was_cast, "read from user", ["read from user"])
       @type.expect(:serialize, "ready for database", ["read from user"])
       attribute = Attribute.from_user(nil, "whatever", @type)
 

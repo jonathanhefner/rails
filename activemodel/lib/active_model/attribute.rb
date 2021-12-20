@@ -179,6 +179,10 @@ module ActiveModel
           type.cast(value)
         end
 
+        def value_for_database
+          type.serialize(type.value_was_cast(value))
+        end
+
         def came_from_user?
           !type.value_constructed_by_mass_assignment?(value_before_type_cast)
         end
