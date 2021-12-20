@@ -94,6 +94,17 @@ module ActiveModel
         false
       end
 
+      # Optionally wraps a cast result in a decorator object.
+      #
+      # Some types must cast a value before serializing it. This cast may be
+      # unnecessary if the value is coming from a model attribute. If casting is
+      # expensive, a type can override this method and return a decorated value.
+      # Then, when serializing, the type can check for the decoration to avoid a
+      # double cast.
+      def value_was_cast(value) # :nodoc:
+        value
+      end
+
       def value_constructed_by_mass_assignment?(_value) # :nodoc:
         false
       end
