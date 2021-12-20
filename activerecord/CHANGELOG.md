@@ -1,3 +1,37 @@
+*   Add `ActiveRecord::Base::normalizes` to declare attribute normalizations.
+
+    A normalization is applied when the attribute is assigned or updated, and
+    the normalized value will be persisted to the database.  The normalization
+    is also applied to the corresponding keyword argument of finder methods.
+    This allows a record to be created and later queried using unnormalized
+    values.  For example:
+
+    ```ruby
+    class User < ActiveRecord::Base
+      normalizes :email, with: -> email { email.strip.downcase }
+    end
+
+    user = User.create(email: " CRUISE-CONTROL@EXAMPLE.COM\n")
+    user.email                  # => "cruise-control@example.com"
+
+    user = User.find_by(email: "\tCRUISE-CONTROL@EXAMPLE.COM ")
+    user.email                  # => "cruise-control@example.com"
+    user.email_before_type_cast # => "cruise-control@example.com"
+
+    User.exists?(email: "\tCRUISE-CONTROL@EXAMPLE.COM ")         # => true
+    User.exists?(["email = ?", "\tCRUISE-CONTROL@EXAMPLE.COM "]) # => false
+    ```
+
+    A normalization can be specified as a proc or a symbol, or an array of
+    such objects.  So the following are equivalent:
+
+    ```ruby
+    normalizes :email, with: -> email { email.strip.downcase }
+    normalizes :email, with: [:strip, :downcase]
+    ```
+
+    *Jonathan Hefner*
+
 *   Add configurable formatter on query log tags to support sqlcommenter. See #45139
 
     It is now possible to opt into sqlcommenter-formatted query log tags with `config.active_record.query_log_tags_format = :sqlcommenter`.
