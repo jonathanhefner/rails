@@ -54,6 +54,10 @@ module ActiveModel
         value
       end
 
+      def serialize_for_query(value) # :nodoc:
+        serialize(value)
+      end
+
       # Type casts a value for schema dumping. This method is private, as we are
       # hoping to remove it entirely.
       def type_cast_for_schema(value) # :nodoc:
