@@ -13,9 +13,13 @@ module ActiveRecord
       # returns +nil+.
       #
       # Regardless of whether a record is found or authentication succeeds,
-      # +authenticate_by+ will take the same amount of time. This prevents
-      # timing-based enumeration attacks, wherein an attacker can determine if a
-      # passworded record exists even without knowing the password.
+      # +authenticate_by+ will take the same amount of time outside of the
+      # database query. (Note that the database query itself might take a
+      # variable amount of time depending on whether the attributes are indexed,
+      # and on the type of index used. See your database's documentation for
+      # more information.) This behavior mitigates timing-based enumeration
+      # attacks, wherein an attacker can determine if a passworded record exists
+      # even without knowing the password.
       #
       # Raises an ArgumentError if the set of attributes doesn't contain at
       # least one password and one non-password attribute.
