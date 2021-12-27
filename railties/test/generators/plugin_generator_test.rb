@@ -191,6 +191,29 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     assert_no_directory "test"
   end
 
+  def test_development_dependencies_include_sprockets_when_dummy_app
+    run_generator
+    assert_directory "test/dummy"
+    assert_gem "sprockets-rails"
+  end
+
+  def test_development_dependencies_do_not_include_sprockets_when_no_dummy_app
+    run_generator [destination_root, "--skip-test"]
+    assert_no_directory "test/dummy"
+    assert_no_gem "sprockets-rails"
+  end
+
+  def test_development_dependencies_do_not_include_sprockets_when_skip_assets_pipeline
+    run_generator [destination_root, "--skip-asset-pipeline"]
+    assert_no_gem "sprockets-rails"
+  end
+
+  def test_development_dependencies_respect_assets_pipeline_option
+    run_generator [destination_root, "--asset-pipeline=propshaft"]
+    assert_gem "propshaft"
+    assert_no_gem "sprockets-rails"
+  end
+
   def test_no_development_dependencies_in_gemspec
     run_generator
     assert_file "bukkits.gemspec" do |contents|
@@ -201,8 +224,10 @@ class PluginGeneratorTest < Rails::Generators::TestCase
   def test_default_database_dependency_is_sqlite
     run_generator
     assert_file "test/dummy/config/database.yml", /sqlite/
-    assert_file "Gemfile" do |contents|
-      assert_match_sqlite3(contents)
+    if defined?(JRUBY_VERSION)
+      assert_gem "activerecord-jdbcsqlite3-adapter"
+    else
+      assert_gem "sqlite3"
     end
   end
 
@@ -289,39 +314,6 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     quietly { system "bundle install" }
     output = `bin/rails db:migrate 2>&1`
     assert $?.success?, "Command failed: #{output}"
-  end
-
-  def test_ensure_that_sprokets_is_required_when_mountable
-    run_generator [destination_root, "--mountable"]
-    assert_file "Gemfile", /^gem "sprockets-rails"/
-  end
-
-  def test_ensure_that_sprokets_is_required_when_full
-    run_generator [destination_root, "--full"]
-    assert_file "Gemfile", /^gem "sprockets-rails"/
-  end
-
-  def test_ensure_that_sprokets_is_not_required_when_not_mountable_or_full
-    run_generator
-    assert_file "Gemfile" do |content|
-      assert_no_match(/sprockets-rails/, content)
-    end
-  end
-
-  def test_ensure_that_sprokets_is_not_required_when_assets_pipeline_is_skipped
-    run_generator [destination_root, "--skip-asset-pipeline", "--mountable"]
-
-    assert_file "Gemfile" do |contents|
-      assert_no_match(/sprockets-rails/, contents)
-    end
-  end
-
-  def test_ensure_that_sprokets_is_not_required_when_assets_pipeline_is_not_sprockets
-    run_generator [destination_root, "--asset-pipeline=propshaft", "--mountable"]
-
-    assert_file "Gemfile" do |contents|
-      assert_no_match(/sprockets-rails/, contents)
-    end
   end
 
   def test_creating_engine_in_full_mode
@@ -896,14 +888,6 @@ class PluginGeneratorTest < Rails::Generators::TestCase
 
     def default_files
       ::DEFAULT_PLUGIN_FILES
-    end
-
-    def assert_match_sqlite3(contents)
-      if defined?(JRUBY_VERSION)
-        assert_match(/group :development do\n  gem 'activerecord-jdbcsqlite3-adapter'\nend/, contents)
-      else
-        assert_match(/group :development do\n  gem "sqlite3"\nend/, contents)
-      end
     end
 
     def with_simulated_app
