@@ -309,6 +309,35 @@ module Rails
       end
 
     private
+      def gemfile_entries
+        [
+          rails_gemfile_entry,
+          database_gemfile_entry,
+          asset_pipeline_gemfile_entry,
+        ].flatten.compact
+      end
+
+      def rails_gemfile_entry
+        if options[:skip_gemspec]
+          super
+        elsif rails_prerelease?
+          super.dup.tap do |entry|
+            entry.comment = <<~COMMENT
+              Your gem is dependent on a prerelease version of Rails. Once you can lock this
+              dependency down to a specific version, move it to your gemspec.
+            COMMENT
+          end
+        end
+      end
+
+      def database_gemfile_entry
+        super&.then { |entry| GemfileEntry.floats(entry.name) }
+      end
+
+      def asset_pipeline_gemfile_entry
+        super if with_dummy_app?
+      end
+
       def create_dummy_app(path = nil)
         dummy_path(path) if path
 
