@@ -68,7 +68,9 @@ module ActiveSupport
     autoload :JSON
     autoload :KeyGenerator
     autoload :MessageEncryptor
+    autoload :MessageEncryptors
     autoload :MessageVerifier
+    autoload :MessageVerifiers
     autoload :Multibyte
     autoload :NumberHelper
     autoload :OptionMerger
