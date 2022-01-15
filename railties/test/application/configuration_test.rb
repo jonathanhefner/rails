@@ -230,6 +230,7 @@ module ApplicationTests
     test "Rails.application responds to all instance methods" do
       app "development"
       assert_equal Rails.application.routes_reloader, AppTemplate::Application.routes_reloader
+      assert_kind_of ActiveSupport::MessageVerifiers, Rails.application.message_verifiers
     end
 
     test "Rails::Application responds to paths" do

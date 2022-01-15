@@ -4,7 +4,7 @@ require "yaml"
 require "active_support/core_ext/hash/keys"
 require "active_support/core_ext/object/blank"
 require "active_support/key_generator"
-require "active_support/message_verifier"
+require "active_support/message_verifiers"
 require "active_support/encrypted_configuration"
 require "active_support/hash_with_indifferent_access"
 require "active_support/configuration_file"
@@ -111,7 +111,7 @@ module Rails
       @app_env_config    = nil
       @ordered_railties  = nil
       @railties          = nil
-      @message_verifiers = {}
+      @message_verifiers = nil
       @ran_load_hooks    = false
 
       @executor          = Class.new(ActiveSupport::Executor)
@@ -158,6 +158,13 @@ module Rails
       )
     end
 
+    # Returns a message verifier factory. This factory can be used as a central
+    # point to configure and create message verifiers for your application. See
+    # the ActiveSupport::MessageVerifiers documentation for more information.
+    def message_verifiers
+      @message_verifiers ||= ActiveSupport::MessageVerifiers.new { |salt| key_generator.generate_key(salt) }.rotate_defaults
+    end
+
     # Returns a message verifier object.
     #
     # This verifier can be used to generate and verify signed messages in the application.
@@ -177,10 +184,7 @@ module Rails
     #
     # See the ActiveSupport::MessageVerifier documentation for more information.
     def message_verifier(verifier_name)
-      @message_verifiers[verifier_name] ||= begin
-        secret = key_generator.generate_key(verifier_name.to_s)
-        ActiveSupport::MessageVerifier.new(secret)
-      end
+      message_verifiers[verifier_name.to_s]
     end
 
     # Convenience for loading config/foo.yml for the current Rails env.
