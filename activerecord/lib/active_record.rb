@@ -77,6 +77,7 @@ module ActiveRecord
   autoload :TestDatabases
   autoload :TestFixtures, "active_record/fixtures"
   autoload :Timestamp
+  autoload :TokenFor
   autoload :TouchLater
   autoload :Transactions
   autoload :Translation
@@ -270,6 +271,9 @@ module ActiveRecord
 
   singleton_class.attr_accessor :application_record_class
   self.application_record_class = nil
+
+  singleton_class.attr_accessor :message_verifiers
+  self.message_verifiers = nil
 
   ##
   # :singleton-method:

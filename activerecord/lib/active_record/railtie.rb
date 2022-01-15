@@ -331,6 +331,12 @@ To keep using the current cache store, you can turn off cache versioning entirel
       end
     end
 
+    initializer "active_record.message_verifiers" do
+      config.after_initialize do |app|
+        ActiveRecord.message_verifiers ||= app.message_verifiers
+      end
+    end
+
     initializer "active_record.set_signed_id_verifier_secret" do
       ActiveSupport.on_load(:active_record) do
         self.signed_id_verifier_secret ||= -> { Rails.application.key_generator.generate_key("active_record/signed_id") }
