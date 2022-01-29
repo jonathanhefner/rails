@@ -487,6 +487,58 @@ module ApplicationTests
       end
     end
 
+    def test_declarative_style_string_filter
+      app_file "test/models/post_test.rb", <<~RUBY
+        require "test_helper"
+
+        class PostTest < ActiveSupport::TestCase
+          test "prints foo" do
+            puts "foo!"
+            assert true
+          end
+
+          test "prints foo and fails" do
+            puts "foo!"
+            assert false
+          end
+        end
+      RUBY
+
+      run_test_command("test/models/post_test.rb -n 'prints foo'").tap do |output|
+        assert_match "foo!", output
+        assert_match "1 runs, 1 assertions, 0 failures", output
+      end
+    end
+
+    def test_declarative_style_regexp_filter
+      app_file "test/models/post_test.rb", <<~RUBY
+        require "test_helper"
+
+        class PostTest < ActiveSupport::TestCase
+          test "prints foo" do
+            puts "foo!"
+            assert true
+          end
+
+          test "prints bar" do
+            puts "bar!"
+            assert true
+          end
+
+          test "prints baz and fails" do
+            puts "baz!"
+            assert false
+          end
+        end
+      RUBY
+
+      run_test_command("test/models/post_test.rb -n '/prints foo|prints bar/'").tap do |output|
+        assert_match "foo!", output
+        assert_match "bar!", output
+        assert_match "2 runs, 2 assertions, 0 failures", output
+      end
+    end
+
     def test_run_app_without_rails_loaded
       # Simulate a real Rails app boot.
       app_file "config/boot.rb", <<-RUBY
