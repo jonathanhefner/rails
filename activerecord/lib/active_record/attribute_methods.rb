@@ -13,7 +13,6 @@ module ActiveRecord
       initialize_generated_modules
       include Read
       include Write
-      include BeforeTypeCast
       include Query
       include PrimaryKey
       include TimeZoneConversion

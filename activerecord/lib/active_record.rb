@@ -121,7 +121,6 @@ module ActiveRecord
     extend ActiveSupport::Autoload
 
     eager_autoload do
-      autoload :BeforeTypeCast
       autoload :Dirty
       autoload :PrimaryKey
       autoload :Query

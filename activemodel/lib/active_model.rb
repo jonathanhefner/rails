@@ -61,6 +61,14 @@ module ActiveModel
     autoload :UnknownAttributeError, "active_model/errors"
   end
 
+  module AttributeMethods
+    extend ActiveSupport::Autoload
+
+    eager_autoload do
+      autoload :BeforeTypeCast
+    end
+  end
+
   module Serializers
     extend ActiveSupport::Autoload
 
