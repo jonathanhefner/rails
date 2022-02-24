@@ -42,5 +42,6 @@ module ActiveModel
   module Model
     extend ActiveSupport::Concern
     include ActiveModel::API
+    include ActiveModel::Access
   end
 end

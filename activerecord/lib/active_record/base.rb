@@ -297,6 +297,7 @@ module ActiveRecord # :nodoc:
     extend Aggregations::ClassMethods
 
     include Core
+    include ActiveModel::Access
     include Persistence
     include ReadonlyAttributes
     include ModelSchema
