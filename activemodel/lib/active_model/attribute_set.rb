@@ -21,6 +21,10 @@ module ActiveModel
       @attributes[name] = value
     end
 
+    def cast_types
+      attributes.transform_values(&:type)
+    end
+
     def values_before_type_cast
       attributes.transform_values(&:value_before_type_cast)
     end
@@ -37,6 +41,7 @@ module ActiveModel
     def key?(name)
       attributes.key?(name) && self[name].initialized?
     end
+    alias :include? :key?
 
     def keys
       attributes.each_key.select { |name| self[name].initialized? }
@@ -90,8 +95,22 @@ module ActiveModel
     end
 
     def map(&block)
-      new_attributes = attributes.transform_values(&block)
-      AttributeSet.new(new_attributes)
+      dup.map!(&block)
+    end
+
+    def map!(&block)
+      attributes.transform_values!(&block) && self
+    end
+
+    def revise_types!(&block)
+      map! do |attribute|
+        type = block.call(attribute.name, attribute.type)
+        (type.nil? || attribute.type.equal?(type)) ? attribute : attribute.with_type(type)
+      end
+    end
+
+    def merge!(other, &block)
+      attributes.merge!(other.attributes, &block) && self
     end
 
     def ==(other)

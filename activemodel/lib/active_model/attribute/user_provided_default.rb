@@ -4,7 +4,13 @@ require "active_model/attribute"
 
 module ActiveModel
   class Attribute # :nodoc:
+    def with_user_default(value)
+      UserProvidedDefault.new(name, value, type, self.is_a?(FromDatabase) ? self : original_attribute)
+    end
+
     class UserProvidedDefault < FromUser # :nodoc:
+      attr_reader :user_provided_value
+
       def initialize(name, value, type, database_default)
         @user_provided_value = value
         super(name, value, type, database_default)
@@ -43,9 +49,6 @@ module ActiveModel
           @value = value
         end
       end
-
-      private
-        attr_reader :user_provided_value
     end
   end
 end

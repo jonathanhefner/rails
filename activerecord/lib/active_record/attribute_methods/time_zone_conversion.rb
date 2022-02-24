@@ -69,14 +69,13 @@ module ActiveRecord
       end
 
       module ClassMethods # :nodoc:
-        def define_attribute(name, cast_type, **)
-          if create_time_zone_conversion_attribute?(name, cast_type)
-            cast_type = TimeZoneConverter.new(cast_type)
-          end
-          super
-        end
-
         private
+          def build_default_attributes
+            super.revise_types! do |name, type|
+              TimeZoneConverter.new(type) if create_time_zone_conversion_attribute?(name, type)
+            end
+          end
+
           def create_time_zone_conversion_attribute?(name, cast_type)
             enabled_for_column = time_zone_aware_attributes &&
               !skip_time_zone_conversion_for_attributes.include?(name.to_sym)
