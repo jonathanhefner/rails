@@ -3,6 +3,8 @@
 module ActiveRecord
   module Type
     class DecimalWithoutScale < ActiveModel::Type::BigInteger # :nodoc:
+      include ActiveModel::Type::SerializeCastValueOptimization
+
       def type
         :decimal
       end
