@@ -27,6 +27,8 @@ module ActiveModel
         )
       end
 
+      alias serialize_after_cast serialize_after_cast # :nodoc:
+
       private
         def cast_value(value)
           case value

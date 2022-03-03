@@ -9,6 +9,10 @@ module ActiveModel
             super(cast(value))
           end
 
+          def serialize_after_cast(value)
+            super(value)
+          end
+
           def cast(value)
             if value.is_a?(Hash)
               value_from_multiparameter_assignment(value)

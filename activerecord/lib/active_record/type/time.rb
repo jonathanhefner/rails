@@ -17,6 +17,10 @@ module ActiveRecord
         end
       end
 
+      def serialize_after_cast(value) # :nodoc:
+        Value.new(super)
+      end
+
       private
         def cast_value(value)
           case value = super

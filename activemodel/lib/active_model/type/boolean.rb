@@ -25,6 +25,8 @@ module ActiveModel
         :boolean
       end
 
+      alias serialize_after_cast serialize # :nodoc:
+
       def serialize(value) # :nodoc:
         cast(value)
       end

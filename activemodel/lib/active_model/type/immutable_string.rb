@@ -43,6 +43,8 @@ module ActiveModel
         :string
       end
 
+      alias serialize_after_cast serialize # :nodoc:
+
       def serialize(value)
         case value
         when ::Numeric, ::Symbol, ActiveSupport::Duration then value.to_s

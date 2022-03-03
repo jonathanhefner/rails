@@ -10,6 +10,8 @@ module ActiveRecord
       def type_cast_for_schema(value)
         value.to_s.inspect
       end
+
+      alias serialize_after_cast serialize_after_cast # :nodoc:
     end
   end
 end

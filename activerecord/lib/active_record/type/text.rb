@@ -6,6 +6,8 @@ module ActiveRecord
       def type
         :text
       end
+
+      alias serialize_after_cast serialize_after_cast # :nodoc:
     end
   end
 end
