@@ -49,7 +49,7 @@ module ActiveModel
       attribute.value
     end
 
-    test "read_before_typecast returns the given value" do
+    test "value_before_type_cast returns the given value" do
       attribute = Attribute.from_database(nil, "raw value", @type)
 
       raw_value = attribute.value_before_type_cast
@@ -57,7 +57,7 @@ module ActiveModel
       assert_equal "raw value", raw_value
     end
 
-    test "from_database + read_for_database type casts to and from database" do
+    test "from_database + value_for_database type casts to and from database" do
       @type.expect(:deserialize, "read from database", ["whatever"])
       @type.expect(:serialize, "ready for database", ["read from database"])
       attribute = Attribute.from_database(nil, "whatever", @type)
@@ -67,7 +67,7 @@ module ActiveModel
       assert_equal "ready for database", serialize
     end
 
-    test "from_user + read_for_database type casts from the user to the database" do
+    test "from_user + value_for_database type casts from the user to the database" do
       @type.expect(:cast, "read from user", ["whatever"])
       @type.expect(:serialize, "ready for database", ["read from user"])
       attribute = Attribute.from_user(nil, "whatever", @type)
@@ -75,6 +75,24 @@ module ActiveModel
       serialize = attribute.value_for_database
 
       assert_equal "ready for database", serialize
+    end
+
+    test "from_user + value_for_database uses serialize_cast_value when possible" do
+      type = Class.new(Type::Value) do
+        include Type::SerializeCastValue
+
+        def cast(value)
+          "cast(#{value})"
+        end
+
+        def serialize_cast_value(value)
+          "serialize_cast_value(#{value})"
+        end
+      end
+
+      attribute = Attribute.from_user(nil, "whatever", type.new)
+
+      assert_equal "serialize_cast_value(cast(whatever))", attribute.value_for_database
     end
 
     test "duping dups the value" do
