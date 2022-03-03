@@ -179,6 +179,14 @@ module ActiveModel
           type.cast(value)
         end
 
+        def value_for_database
+          if Type::SerializeCastValueOptimization === type
+            type.optimally_serialize_cast_value(value)
+          else
+            type.serialize(value)
+          end
+        end
+
         def came_from_user?
           !type.value_constructed_by_mass_assignment?(value_before_type_cast)
         end

@@ -33,6 +33,8 @@ module ActiveModel
     #
     #   person.active # => "aye"
     class ImmutableString < Value
+      include SerializeCastValueOptimization
+
       def initialize(**args)
         @true  = -(args.delete(:true)&.to_s  || "t")
         @false = -(args.delete(:false)&.to_s || "f")
