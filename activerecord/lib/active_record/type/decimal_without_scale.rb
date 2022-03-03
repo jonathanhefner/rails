@@ -10,6 +10,8 @@ module ActiveRecord
       def type_cast_for_schema(value)
         value.to_s.inspect
       end
+
+      public :serialize_cast_value # :nodoc:
     end
   end
 end

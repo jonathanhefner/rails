@@ -21,6 +21,8 @@ module ActiveModel
     # All casting and serialization are performed in the same way as the
     # standard ActiveModel::Type::Integer type.
     class BigInteger < Integer
+      public :serialize_cast_value # :nodoc:
+
       private
         def max_value
           ::Float::INFINITY

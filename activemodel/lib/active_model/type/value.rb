@@ -7,6 +7,10 @@ module ActiveModel
     class Value
       attr_reader :precision, :scale, :limit
 
+      def self.inherited(subclass) # :nodoc:
+        subclass.send(:private, :serialize_cast_value)
+      end
+
       # Initializes a type with three basic configuration settings: precision,
       # limit, and scale. The Value base class does not define behavior for
       # these settings. It uses them for equality comparison and hash key
@@ -61,6 +65,9 @@ module ActiveModel
       def serialize(value)
         value
       end
+
+      alias serialize_cast_value serialize
+      private :serialize_cast_value
 
       # Type casts a value for schema dumping. This method is private, as we are
       # hoping to remove it entirely.

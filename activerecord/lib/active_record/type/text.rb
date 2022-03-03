@@ -6,6 +6,8 @@ module ActiveRecord
       def type
         :text
       end
+
+      public :serialize_cast_value # :nodoc:
     end
   end
 end

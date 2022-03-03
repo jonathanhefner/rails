@@ -63,6 +63,8 @@ module ActiveModel
         super(value)
       end
 
+      alias serialize_cast_value serialize_time_value # :nodoc:
+
       private
         def cast_value(value)
           return apply_seconds_precision(value) unless value.is_a?(::String)

@@ -29,6 +29,8 @@ module ActiveModel
         cast(value)
       end
 
+      public :serialize_cast_value # :nodoc:
+
       private
         def cast_value(value)
           if value == ""

@@ -41,6 +41,8 @@ module ActiveModel
         end
       end
 
+      public :serialize_cast_value # :nodoc:
+
       private
         def cast_value(value)
           case value
