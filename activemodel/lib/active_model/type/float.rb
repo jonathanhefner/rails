@@ -28,6 +28,8 @@ module ActiveModel
     class Float < Value
       include Helpers::Numeric
 
+      inherits_serialize_cast_value_optimization
+
       def type
         :float
       end

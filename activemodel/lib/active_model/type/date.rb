@@ -33,6 +33,10 @@ module ActiveModel
         value.to_fs(:db).inspect
       end
 
+      def serialize_cast_value(value) # :nodoc:
+        value
+      end
+
       private
         def cast_value(value)
           if value.is_a?(::String)

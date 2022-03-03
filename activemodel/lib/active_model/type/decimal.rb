@@ -35,6 +35,8 @@ module ActiveModel
       include Helpers::Numeric
       BIGDECIMAL_PRECISION = 18
 
+      inherits_serialize_cast_value_optimization
+
       def type
         :decimal
       end

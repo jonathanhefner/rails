@@ -3,6 +3,8 @@
 module ActiveRecord
   module Type
     class UnsignedInteger < ActiveModel::Type::Integer # :nodoc:
+      inherits_serialize_cast_value_optimization
+
       private
         def max_value
           super * 2

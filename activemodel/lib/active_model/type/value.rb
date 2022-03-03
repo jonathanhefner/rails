@@ -130,6 +130,10 @@ module ActiveModel
       end
 
       private
+        def self.inherits_serialize_cast_value_optimization
+          alias_method :serialize_cast_value, :serialize_cast_value
+        end
+
         # Convenience method for types which do not need separate type casting
         # behavior for user and database inputs. Called by Value#cast for
         # values except +nil+.
