@@ -19,6 +19,14 @@ module ActiveModel
         reset_default_attributes
       end
 
+      def decorate_attribute(attribute, decorator, default: (no_default = true), **options)
+        pending = pending_attribute(attribute)
+        pending.decorate { |type| resolve_type_name(decorator, **options, subtype: type) }
+        pending.default = default unless no_default
+
+        reset_default_attributes
+      end
+
       def _default_attributes # :nodoc:
         @default_attributes ||= build_default_attributes
       end
@@ -31,10 +39,24 @@ module ActiveModel
 
       private
         class PendingAttribute # :nodoc:
-          attr_accessor :type, :default
+          attr_accessor :default, :decorator
+
+          def type=(type)
+            self.decorator = nil
+            @type = type
+          end
+          attr_reader :type
+
+          def decorate(&decorator)
+            if type
+              self.type = decorator.call(type)
+            else
+              self.decorator = [self.decorator, decorator].compact.reduce(&:>>)
+            end
+          end
 
           def apply_to(attribute)
-            attribute = attribute.with_type(type || attribute.type)
+            attribute = attribute.with_type(type || decorator&.call(attribute.type) || attribute.type)
             attribute = attribute.with_user_default(default) if defined?(@default)
             attribute
           end
