@@ -5,7 +5,19 @@ require "cases/helper"
 module ActiveModel
   class AttributeRegistrationTest < ActiveModel::TestCase
     MyType = Class.new(Type::Value)
+
+    MyDecorator = DelegateClass(Type::Value) do
+      alias subtype __getobj__
+      def initialize(subtype:)
+        super(subtype)
+      end
+    end
+
+    MyOtherDecorator = MyDecorator.dup
+
     Type.register(MyType.name.to_sym, MyType)
+    Type.register(MyDecorator.name.to_sym, MyDecorator)
+
     TYPE_1 = MyType.new(precision: 1)
     TYPE_2 = MyType.new(precision: 2)
 
@@ -44,6 +56,42 @@ module ActiveModel
       assert_not_predicate attributes["bar"], :came_from_user?
     end
 
+    test "types can be decorated" do
+      attributes = default_attributes_for do
+        attribute :foo, TYPE_1
+        attribute :bar, TYPE_2
+        decorate_attribute :foo, MyDecorator.name.to_sym
+        attribute(:bar) { |type| MyDecorator.new(subtype: type) }
+      end
+
+      assert_instance_of MyDecorator, attributes["foo"].type
+      assert_instance_of MyDecorator, attributes["bar"].type
+      assert_same TYPE_1, attributes["foo"].type.subtype
+      assert_same TYPE_2, attributes["bar"].type.subtype
+    end
+
+    test "type decorators can be stacked" do
+      attributes = default_attributes_for do
+        attribute :foo, TYPE_1
+        decorate_attribute :foo, MyDecorator.name.to_sym
+        attribute(:foo) { |type| MyOtherDecorator.new(subtype: type) }
+      end
+
+      assert_instance_of MyOtherDecorator, attributes["foo"].type
+      assert_instance_of MyDecorator, attributes["foo"].type.subtype
+      assert_same TYPE_1, attributes["foo"].type.subtype.subtype
+    end
+
+    test "re-registering an attribute overrides previous type decorators" do
+      attributes = default_attributes_for do
+        attribute :foo, TYPE_1
+        decorate_attribute :foo, MyDecorator.name.to_sym
+        attribute :foo, TYPE_1
+      end
+
+      assert_same TYPE_1, attributes["foo"].type
+    end
+
     test "attribute_types reflects registered attribute types" do
       klass = class_with { attribute :foo, TYPE_1 }
       assert_same TYPE_1, klass.attribute_types["foo"]
@@ -70,6 +118,7 @@ module ActiveModel
     test "attributes are inherited" do
       parent = class_with do
         attribute :foo, TYPE_1, default: 123
+        decorate_attribute :foo, MyDecorator.name.to_sym
       end
 
       child = Class.new(parent)
@@ -127,6 +176,25 @@ module ActiveModel
       assert_equal 789, child._default_attributes["bar"].value
       assert_equal 123, parent._default_attributes["foo"].value
       assert_nil parent._default_attributes["bar"].value
+    end
+
+    test "superclass attribute types can be decorated" do
+      parent = class_with do
+        attribute :foo, TYPE_1
+        attribute :bar, TYPE_2
+      end
+
+      child = class_with(parent) do
+        decorate_attribute :foo, MyDecorator.name.to_sym
+        attribute(:bar) { |type| MyOtherDecorator.new(subtype: type) }
+      end
+
+      assert_instance_of MyDecorator, child._default_attributes["foo"].type
+      assert_instance_of MyOtherDecorator, child._default_attributes["bar"].type
+      assert_same TYPE_1, child._default_attributes["foo"].type.subtype
+      assert_same TYPE_2, child._default_attributes["bar"].type.subtype
+      assert_same TYPE_1, parent._default_attributes["foo"].type
+      assert_same TYPE_2, parent._default_attributes["bar"].type
     end
 
     private
