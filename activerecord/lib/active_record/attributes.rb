@@ -1,17 +1,26 @@
 # frozen_string_literal: true
 
+require "active_model/attribute_set"
 require "active_model/attribute/user_provided_default"
 
 module ActiveRecord
   # See ActiveRecord::Attributes::ClassMethods for documentation
   module Attributes
     extend ActiveSupport::Concern
+    include ActiveModel::AttributeRegistration
 
     included do
-      class_attribute :attributes_to_define_after_schema_loads, instance_accessor: false, default: {} # :internal:
+      class << self
+        alias_method :_reset_default_attributes, :reset_default_attributes
+        alias_method :reset_default_attributes, :reload_schema_from_cache
+      end
     end
 
     module ClassMethods
+      ##
+      # :method: attribute
+      # :call-seq: attribute(name, cast_type = nil, default: nil, **options)
+      #
       # Defines an attribute with a type on this model. It will override the
       # type of existing attributes if needed. This allows control over how
       # values are converted to and from SQL when assigned to a model. It also
@@ -205,31 +214,9 @@ module ActiveRecord
       # tracking is performed. The methods +changed?+ and +changed_in_place?+
       # will be called from ActiveModel::Dirty. See the documentation for those
       # methods in ActiveModel::Type::Value for more details.
-      def attribute(name, cast_type = nil, default: NO_DEFAULT_PROVIDED, **options)
-        name = name.to_s
-        name = attribute_aliases[name] || name
-
-        reload_schema_from_cache
-
-        case cast_type
-        when Symbol
-          cast_type = Type.lookup(cast_type, **options, adapter: Type.adapter_name_from(self))
-        when nil
-          if (prev_cast_type, prev_default = attributes_to_define_after_schema_loads[name])
-            default = prev_default if default == NO_DEFAULT_PROVIDED
-          else
-            prev_cast_type = -> subtype { subtype }
-          end
-
-          cast_type = if block_given?
-            -> subtype { yield Proc === prev_cast_type ? prev_cast_type[subtype] : prev_cast_type }
-          else
-            prev_cast_type
-          end
-        end
-
-        self.attributes_to_define_after_schema_loads =
-          attributes_to_define_after_schema_loads.merge(name => [cast_type, default])
+      def attribute(name, *, **, &block)
+        super
+        pending_attribute(name).decorate(&block) if block
       end
 
       # This is the low level API which sits beneath +attribute+. It only
@@ -260,17 +247,26 @@ module ActiveRecord
         define_default_attribute(name, default, cast_type, from_user: user_provided_default)
       end
 
-      def load_schema! # :nodoc:
+      def reload_schema_from_cache # :nodoc:
         super
-        attributes_to_define_after_schema_loads.each do |name, (cast_type, default)|
-          cast_type = cast_type[type_for_attribute(name)] if Proc === cast_type
-          define_attribute(name, cast_type, default: default)
-        end
+        _reset_default_attributes
       end
 
       private
         NO_DEFAULT_PROVIDED = Object.new # :nodoc:
         private_constant :NO_DEFAULT_PROVIDED
+
+        def build_default_attributes
+          column_attributes = columns_hash.to_h do |name, column|
+            [name, ActiveModel::Attribute.from_database(name, column.default, column_types[name])]
+          end
+
+          apply_pending_attributes(ActiveModel::AttributeSet.new(column_attributes))
+        end
+
+        def resolve_type_name(name, **options)
+          ActiveRecord::Type.lookup(name, **options, adapter: ActiveRecord::Type.adapter_name_from(self))
+        end
 
         def define_default_attribute(name, value, type, from_user:)
           if value == NO_DEFAULT_PROVIDED
