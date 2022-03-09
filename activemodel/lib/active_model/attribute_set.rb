@@ -95,8 +95,18 @@ module ActiveModel
     end
 
     def map(&block)
-      new_attributes = attributes.transform_values(&block)
-      AttributeSet.new(new_attributes)
+      dup.map!(&block)
+    end
+
+    def map!(&block)
+      attributes.transform_values!(&block) && self
+    end
+
+    def revise_types!(&block)
+      map! do |attribute|
+        revision = block.call(attribute.name, attribute.type)
+        (revision.nil? || attribute.type.equal?(revision)) ? attribute : attribute.with_type(revision)
+      end
     end
 
     def ==(other)
