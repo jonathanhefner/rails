@@ -4,23 +4,25 @@ module ActiveModel
   module Type
     module SerializeCastValue # :nodoc:
       def self.included(klass)
-        klass.singleton_class.attr_accessor :serialize_cast_value_included
-        klass.serialize_cast_value_included = true
+        klass.alias_method :itself_if_serialize_cast_value_included, :itself
+        klass.extend(ClassMethods)
       end
 
-      def self.serialize(type, value)
-        if SerializeCastValue === type && type.serialize_cast_value_included
-          type.serialize_cast_value(value)
-        else
-          type.serialize(value)
+      module ClassMethods
+        def inherited(subclass)
+          subclass.alias_method :itself_if_serialize_cast_value_included, :!
+          super
         end
       end
 
-      attr_reader :serialize_cast_value_included
+      def self.serialize(type, value)
+        use_serialize_cast_value = begin
+          type.equal?(type.itself_if_serialize_cast_value_included)
+        rescue NoMethodError
+          false
+        end
 
-      def initialize(...)
-        super
-        @serialize_cast_value_included = self.class.serialize_cast_value_included
+        use_serialize_cast_value ? type.serialize_cast_value(value) : type.serialize(value)
       end
 
       def serialize_cast_value(value)

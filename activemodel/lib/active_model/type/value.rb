@@ -5,6 +5,7 @@ module ActiveModel
     # The base class for all attribute types. This class also serves as the
     # default type for attributes that do not specify a type.
     class Value
+      include SerializeCastValue
       attr_reader :precision, :scale, :limit
 
       # Initializes a type with three basic configuration settings: precision,
