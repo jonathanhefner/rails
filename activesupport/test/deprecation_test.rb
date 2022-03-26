@@ -61,16 +61,12 @@ class DeprecationTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::Stream
 
   def setup
-    # Track the last warning.
-    @old_behavior = ActiveSupport::Deprecation.behavior
-    @last_message = nil
-    ActiveSupport::Deprecation.behavior = Proc.new { |message| @last_message = message }
-
+    @original_configuration = get_configuration(ActiveSupport::Deprecation)
     @dtc = Deprecatee.new
   end
 
   def teardown
-    ActiveSupport::Deprecation.behavior = @old_behavior
+    set_configuration(ActiveSupport::Deprecation, @original_configuration)
   end
 
   def test_inline_deprecation_warning
@@ -225,6 +221,30 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match(/foo/, content)
   end
 
+  test "custom deprecator uses global deprecator `behavior` by default" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+
+    ActiveSupport::Deprecation.behavior = :silence
+    assert_equal ActiveSupport::Deprecation.behavior, deprecator.behavior
+    assert_nothing_raised { deprecator.warn }
+
+    ActiveSupport::Deprecation.behavior = :raise
+    assert_equal ActiveSupport::Deprecation.behavior, deprecator.behavior
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+  end
+
+  test "custom deprecator can override global deprecator `behavior`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+
+    deprecator.behavior = :silence
+    ActiveSupport::Deprecation.behavior = :raise
+    assert_nothing_raised { deprecator.warn }
+
+    deprecator.behavior = :raise
+    ActiveSupport::Deprecation.behavior = :silence
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+  end
+
   def test_deprecated_instance_variable_proxy
     assert_not_deprecated { @dtc.request.size }
 
@@ -260,9 +280,12 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecated_constant_accessor_exception
-    raise DeprecateeWithAccessor::NewException.new("Test")
-  rescue DeprecateeWithAccessor::OldException => e
-    assert_kind_of DeprecateeWithAccessor::NewException, e
+    ActiveSupport::Deprecation.behavior = :silence
+
+    exception = assert_raises DeprecateeWithAccessor::OldException do
+      raise DeprecateeWithAccessor::NewException.new("Test")
+    end
+    assert_kind_of DeprecateeWithAccessor::NewException, exception
   end
 
   def test_assert_deprecated_raises_when_method_not_deprecated
@@ -347,6 +370,55 @@ class DeprecationTest < ActiveSupport::TestCase
     th.join
   ensure
     th.kill
+  end
+
+  test "custom deprecator uses global deprecator `silenced` by default" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.behavior = :raise
+    ActiveSupport::Deprecation.silenced = true
+
+    assert_equal ActiveSupport::Deprecation.silenced, deprecator.silenced
+    assert_nothing_raised { deprecator.warn }
+  end
+
+  test "custom deprecator can override global deprecator `silenced`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.behavior = :raise
+    deprecator.silenced = false
+    ActiveSupport::Deprecation.silenced = true
+
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+  end
+
+  test "custom deprecator obeys `silence`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.behavior = :raise
+
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+
+    deprecator.silence do
+      assert_nothing_raised { deprecator.warn }
+    end
+  end
+
+  test "custom deprecator obeys global deprecator `silence`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.behavior = :raise
+
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+
+    ActiveSupport::Deprecation.silence do
+      assert_nothing_raised { deprecator.warn }
+    end
+  end
+
+  test "custom deprecator `silence` does not affect global deprecator" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    ActiveSupport::Deprecation.behavior = :raise
+
+    deprecator.silence do
+      assert_raises(ActiveSupport::DeprecationException) { ActiveSupport::Deprecation.warn }
+    end
   end
 
   def test_deprecation_without_explanation
@@ -520,8 +592,24 @@ class DeprecationTest < ActiveSupport::TestCase
     end
   end
 
+  test "custom deprecator uses global deprecator `disallowed_warnings` by default" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    ActiveSupport::Deprecation.disallowed_warnings = :all
+
+    assert_equal ActiveSupport::Deprecation.disallowed_warnings, deprecator.disallowed_warnings
+  end
+
+  test "custom deprecator can override global deprecator `disallowed_warnings`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.disallowed_warnings = :all
+
+    assert_not_equal ActiveSupport::Deprecation.disallowed_warnings, deprecator.disallowed_warnings
+    assert_equal :all, deprecator.disallowed_warnings
+  end
+
   def test_no_disallowed_behavior_with_no_disallowed_messages
     resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.behavior = :silence
       ActiveSupport::Deprecation.disallowed_behavior = :raise
       assert_nothing_raised do
         @dtc.none
@@ -532,6 +620,7 @@ class DeprecationTest < ActiveSupport::TestCase
 
   def test_disallowed_behavior_does_not_apply_to_allowed_messages
     resetting_disallowed_deprecation_config do
+      ActiveSupport::Deprecation.behavior = :silence
       ActiveSupport::Deprecation.disallowed_behavior = :raise
       ActiveSupport::Deprecation.disallowed_warnings = ["foo=nil"]
 
@@ -639,6 +728,32 @@ class DeprecationTest < ActiveSupport::TestCase
       assert_match(/foo=nil/, @c)
       assert_match(/foo=nil/, @d)
     end
+  end
+
+  test "custom deprecator uses global deprecator `disallowed_behavior` by default" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    ActiveSupport::Deprecation.disallowed_warnings = :all
+
+    ActiveSupport::Deprecation.disallowed_behavior = :silence
+    assert_equal ActiveSupport::Deprecation.disallowed_behavior, deprecator.disallowed_behavior
+    assert_nothing_raised { deprecator.warn }
+
+    ActiveSupport::Deprecation.disallowed_behavior = :raise
+    assert_equal ActiveSupport::Deprecation.disallowed_behavior, deprecator.disallowed_behavior
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+  end
+
+  test "custom deprecator can override global deprecator `disallowed_behavior`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    ActiveSupport::Deprecation.disallowed_warnings = :all
+
+    deprecator.disallowed_behavior = :silence
+    ActiveSupport::Deprecation.disallowed_behavior = :raise
+    assert_nothing_raised { deprecator.warn }
+
+    deprecator.disallowed_behavior = :raise
+    ActiveSupport::Deprecation.disallowed_behavior = :silence
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
   end
 
   def test_allow
@@ -851,6 +966,39 @@ class DeprecationTest < ActiveSupport::TestCase
     th2.kill
   end
 
+  test "custom deprecator obeys `allow`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.disallowed_warnings = :all
+    deprecator.behavior = :silence
+
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+
+    deprecator.allow do
+      assert_nothing_raised { deprecator.warn }
+    end
+  end
+
+  test "custom deprecator obeys global deprecator `allow`" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    deprecator.disallowed_warnings = :all
+    deprecator.behavior = :silence
+
+    assert_raises(ActiveSupport::DeprecationException) { deprecator.warn }
+
+    ActiveSupport::Deprecation.allow do
+      assert_nothing_raised { deprecator.warn }
+    end
+  end
+
+  test "custom deprecator `allow` does not affect global deprecator" do
+    deprecator = ActiveSupport::Deprecation.new("2.0", "Custom")
+    ActiveSupport::Deprecation.disallowed_warnings = :all
+
+    deprecator.allow do
+      assert_raises(ActiveSupport::DeprecationException) { ActiveSupport::Deprecation.warn }
+    end
+  end
+
   def test_is_a_noop_based_on_if_kwarg_truthy_or_falsey
     resetting_disallowed_deprecation_config do
       @warnings_allowed, @warnings_disallowed = [], []
@@ -946,6 +1094,24 @@ class DeprecationTest < ActiveSupport::TestCase
         @messages ||= []
       end
       deprecator
+    end
+
+    def get_configuration(deprecator)
+      %i[
+        debug
+        silenced
+        behavior
+        disallowed_behavior
+        disallowed_warnings
+      ].to_h do |attribute|
+        [attribute, deprecator.public_send(attribute)]
+      end
+    end
+
+    def set_configuration(deprecator, configuration)
+      configuration.each do |attribute, value|
+        deprecator.public_send("#{attribute}=", value)
+      end
     end
 
     def resetting_disallowed_deprecation_config
