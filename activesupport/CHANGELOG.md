@@ -1,3 +1,7 @@
+*   Fall back to global configuration in custom `ActiveSupport::Deprecator` instances.
+
+    *grncdr* and *Jonathan Hefner*
+
 *   `thread_mattr_accessor` will call `.dup.freeze` on non-frozen default values.
 
     This provides a basic level of protection against different threads trying

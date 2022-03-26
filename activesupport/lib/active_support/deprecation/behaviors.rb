@@ -59,17 +59,22 @@ module ActiveSupport
     # Setting behaviors only affects deprecations that happen after boot time.
     # For more information you can read the documentation of the +behavior=+ method.
     module Behavior
-      # Whether to print a backtrace along with the warning.
-      attr_accessor :debug
+      attr_writer :debug
 
-      # Returns the current behavior or if one isn't set, defaults to +:stderr+.
-      def behavior
-        @behavior ||= [DEFAULT_BEHAVIORS[:stderr]]
+      # Whether to print a backtrace along with the warning.
+      def debug
+        defined?(@debug) ? @debug : self.class.debug
       end
 
-      # Returns the current behavior for disallowed deprecations or if one isn't set, defaults to +:raise+.
+      # Returns the current behavior. Defaults to +ActiveSupport::Deprecation.behavior+.
+      def behavior
+        @behavior || self.class.behavior
+      end
+
+      # Returns the current behavior for disallowed deprecations. Defaults to
+      # +ActiveSupport::Deprecation.disallowed_behavior+.
       def disallowed_behavior
-        @disallowed_behavior ||= [DEFAULT_BEHAVIORS[:raise]]
+        @disallowed_behavior || self.class.disallowed_behavior
       end
 
       # Sets the behavior to the specified value. Can be a single value, array,
