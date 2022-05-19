@@ -252,41 +252,35 @@ module ActiveRecord
               next
             end
 
-            key = aliases.column_alias(node, node.primary_key || node.reflection.join_primary_key.to_s)
+            if node.primary_key
+              key = aliases.column_alias(node, node.primary_key)
+              id = row[key]
+            else
+              key = aliases.column_alias(node, node.reflection.join_primary_key.to_s)
+              id = nil # Avoid id-based model caches.
+            end
 
-            id = row[key]
-            if id.nil?
+            if row[key].nil?
               nil_association = ar_parent.association(node.reflection.name)
               nil_association.loaded!
               next
             end
 
-            # Only cache when we have a primary key. This avoids issues when
-            # the non-unique foreign key is used as a fallback.
-            model = seen[ar_parent][node][id] if node.primary_key
-
-            if model
-              construct(model, node, row, seen, model_cache, strict_loading_value)
-            else
-              model = construct_model(ar_parent, node, row, model_cache, id, strict_loading_value)
-
-              seen[ar_parent][node][id] = model if node.primary_key
-              construct(model, node, row, seen, model_cache, strict_loading_value)
-            end
+            model = seen[ar_parent][node][id] || construct_model(ar_parent, node, row, model_cache, id, strict_loading_value)
+            seen[ar_parent][node][id] = model if id
+            construct(model, node, row, seen, model_cache, strict_loading_value)
           end
         end
 
         def construct_model(record, node, row, model_cache, id, strict_loading_value)
           other = record.association(node.reflection.name)
 
-          unless node.primary_key && model = model_cache[node][id]
-            model = node.instantiate(row, aliases.column_aliases(node)) do |m|
-              m.strict_loading! if strict_loading_value
-              other.set_inverse_instance(m)
-            end
-
-            model_cache[node][id] = model if node.primary_key
+          model = model_cache[node][id] || node.instantiate(row, aliases.column_aliases(node)) do |m|
+            m.strict_loading! if strict_loading_value
+            other.set_inverse_instance(m)
           end
+
+          model_cache[node][id] = model if id
 
           if node.reflection.collection?
             other.target.push(model)
