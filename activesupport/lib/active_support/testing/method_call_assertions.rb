@@ -26,6 +26,26 @@ module ActiveSupport
           assert_mock(mock)
         end
 
+        MockExpectingCalls = DelegateClass(Minitest::Mock) do
+          def initialize(mock = Minitest::Mock.new)
+            super
+          end
+
+          def expect(...)
+            super(:call, ...)
+          end
+        end
+
+        def assert_expected_calls(object, method_name, &block)
+          mock = MockExpectingCalls.new
+
+          object.stub(method_name, mock) do
+            block.call(mock)
+          end
+
+          assert_mock(mock)
+        end
+
         def assert_not_called(object, method_name, message = nil, &block)
           assert_called(object, method_name, message, times: 0, &block)
         end
