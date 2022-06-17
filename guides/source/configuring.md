@@ -65,6 +65,7 @@ Below are the default values associated with each target version. In cases of co
 - [`config.active_support.default_message_encryptor_serializer`](#config-active-support-default-message-encryptor-serializer): `:json`
 - [`config.active_support.default_message_verifier_serializer`](#config-active-support-default-message-verifier-serializer): `:json`
 - [`config.action_controller.allow_deprecated_parameters_hash_equality`](#config-action-controller-allow-deprecated-parameters-hash-equality): `false`
+- [`config.action_controller.redirect_code_for_unsafe_http_methods`](#config-action-controller-redirect-code-for-unsafe-http-methods): `303`
 - [`config.log_file_size`](#config-log-file-size): `100.megabytes`
 - [`config.active_record.sqlite3_adapter_strict_strings_by_default`](#config-active-record-sqlite3-adapter-strict-strings-by-default): `false`
 - [`config.active_record.allow_deprecated_singular_associations_name`](#config-active-record-allow-deprecated-singular-associations-name): `false`
@@ -1361,6 +1362,25 @@ The default value depends on the `config.load_defaults` target version:
 | --------------------- | -------------------- |
 | (original)            | `false`              |
 | 7.0                   | `true`               |
+
+#### `config.action_controller.redirect_code_for_unsafe_http_methods`
+
+The HTTP response code used when redirecting a request made with an unsafe HTTP
+method, such as `POST` or `DELETE`. This can be overridden on a per-request
+basis by passing a `:status` option to [`redirect_to`](
+https://api.rubyonrails.org/classes/ActionController/Redirecting.html#method-i-redirect_to)
+et al.
+
+For most unsafe HTTP methods, a response code of `302` will cause the client to
+use the same HTTP method when following the redirect. A response code of `303`
+will cause the client to use `GET` instead.
+
+The default value depends on the `config.load_defaults` target version:
+
+| Starting with version | The default value is |
+| --------------------- | -------------------- |
+| (original)            | `302`                |
+| 7.1                   | `303`                |
 
 #### `config.action_controller.log_query_tags_around_actions`
 
