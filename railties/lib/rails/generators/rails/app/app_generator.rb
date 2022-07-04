@@ -265,39 +265,57 @@ module Rails
       class_option :minimal, type: :boolean, desc: "Preconfigure a minimal rails app"
       class_option :javascript, type: :string, aliases: ["-j", "--js"], default: "importmap", desc: "Choose JavaScript approach [options: importmap (default), webpack, esbuild, rollup]"
       class_option :css, type: :string, aliases: "-c", desc: "Choose CSS processor [options: tailwind, bootstrap, bulma, postcss, sass... check https://github.com/rails/cssbundling-rails]"
-      class_option :skip_bundle, type: :boolean, aliases: "-B", default: false, desc: "Don't run bundle install"
-      class_option :skip_decrypted_diffs, type: :boolean, default: false, desc: "Don't configure git to show decrypted diffs of encrypted credentials"
+      class_option :skip_bundle, type: :boolean, aliases: "-B", default: nil, desc: "Don't run bundle install"
+      class_option :skip_decrypted_diffs, type: :boolean, default: nil, desc: "Don't configure git to show decrypted diffs of encrypted credentials"
 
       def initialize(*args)
         super
+
+        @implied_options = compute_implied_options(options,
+          { # implied option      => implied by
+            "skip_action_cable"   => ["minimal"],
+            "skip_action_mailbox" => ["minimal", "skip_active_storage"],
+            "skip_action_mailer"  => ["minimal", "skip_active_job"],
+            "skip_action_text"    => ["minimal", "skip_active_storage"],
+            "skip_active_job"     => ["minimal"],
+            "skip_active_storage" => ["minimal", "skip_active_record", "skip_active_job"],
+            "skip_asset_pipeline" => ["api"],
+            "skip_bootsnap"       => ["minimal"],
+            "skip_dev_gems"       => ["minimal"],
+            "skip_hotwire"        => ["minimal", "skip_javascript"],
+            "skip_javascript"     => ["minimal", "api"],
+            "skip_jbuilder"       => ["minimal"],
+            "skip_system_test"    => ["minimal"],
+          },
+          meta_options: ["minimal"]
+        )
+
+        @implied_options_conflicts = @implied_options.keys.select { |name| options[name] == false }
+        self.options = options.merge(@implied_options.transform_values { true }).freeze
 
         if !options[:skip_active_record] && !DATABASES.include?(options[:database])
           raise Error, "Invalid value for --database option. Supported preconfigurations are: #{DATABASES.join(", ")}."
         end
 
-        # Force sprockets and JavaScript to be skipped when generating API only apps.
-        # Can't modify options hash as it's frozen by default.
-        if options[:api]
-          self.options = options.merge(skip_asset_pipeline: true, skip_javascript: true).freeze
-        end
-
-        if options[:minimal]
-          self.options = options.merge(
-            skip_action_cable: true,
-            skip_action_mailer: true,
-            skip_action_mailbox: true,
-            skip_action_text: true,
-            skip_active_job: true,
-            skip_active_storage: true,
-            skip_bootsnap: true,
-            skip_dev_gems: true,
-            skip_javascript: true,
-            skip_jbuilder: true,
-            skip_system_test: true,
-            skip_hotwire: true).freeze
-        end
-
         @after_bundle_callbacks = []
+      end
+
+      def report_implied_options
+        return if @implied_options.empty?
+
+        say "Based on the specified options, the following options will also be activated:"
+        say ""
+        @implied_options.each do |name, reasons|
+          due_to = reasons.map { |reason| "--#{reason.dasherize}" }.join(", ")
+          say "  --#{name.dasherize} [due to #{due_to}]"
+          if @implied_options_conflicts.include?(name)
+            say "    ERROR: Conflicts with --no-#{name.dasherize}", :red
+          end
+        end
+        say ""
+
+        raise "Cannot proceed due to conflicting options" if @implied_options_conflicts.any?
+exit #if no?("Continue? [Y/n]")
       end
 
       public_task :set_default_accessors!

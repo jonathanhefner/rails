@@ -279,6 +279,7 @@ module SharedGeneratorTests
     end
     assert_no_directory "#{application_path}/app/mailers"
     assert_no_directory "#{application_path}/test/mailers"
+    assert_no_file "#{application_path}/app/views/layouts/mailer.html.erb"
   end
 
   def test_generator_if_skip_action_cable_is_given

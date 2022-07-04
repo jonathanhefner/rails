@@ -1091,36 +1091,57 @@ class AppGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  def test_implied_options
+    generator([destination_root], ["--skip-active-storage"])
+
+    assert_not_option :skip_active_record
+    assert_option :skip_active_storage
+    assert_option :skip_action_mailbox
+    assert_option :skip_action_text
+  end
+
+  def test_implied_options_with_conflicting_option
+    error = assert_raises do
+      run_generator [destination_root, "--skip-active-storage", "--no-skip-action-text"]
+    end
+
+    assert_match %r/conflicting option/i, error.message
+  end
+
   def test_minimal_rails_app
-    run_generator [destination_root, "--minimal"]
+    generator([destination_root], ["--minimal"])
 
-    assert_no_file "config/storage.yml"
-    assert_no_file "config/cable.yml"
-    assert_no_file "app/views/layouts/mailer.html.erb"
-    assert_no_file "app/jobs/application_job.rb"
-    assert_file "app/views/layouts/application.html.erb" do |content|
-      assert_no_match(/data-turbo-track/, content)
-    end
-    assert_file "config/environments/development.rb" do |content|
-      assert_no_match(/config\.active_storage/, content)
-    end
-    assert_file "config/environments/production.rb" do |content|
-      assert_no_match(/config\.active_job/, content)
-    end
-    assert_file "config/boot.rb" do |content|
-      assert_no_match(/require "bootsnap\/setup"/, content)
-    end
-    assert_file "config/application.rb" do |content|
-      assert_match(/#\s+require\s+["']active_job\/railtie["']/, content)
-      assert_match(/#\s+require\s+["']active_storage\/engine["']/, content)
-      assert_match(/#\s+require\s+["']action_mailer\/railtie["']/, content)
-      assert_match(/#\s+require\s+["']action_mailbox\/engine["']/, content)
-      assert_match(/#\s+require\s+["']action_text\/engine["']/, content)
-      assert_match(/#\s+require\s+["']action_cable\/engine["']/, content)
-    end
+    assert_option :minimal
+    assert_option :skip_action_cable
+    assert_option :skip_action_mailbox
+    assert_option :skip_action_mailer
+    assert_option :skip_action_text
+    assert_option :skip_active_job
+    assert_option :skip_active_storage
+    assert_option :skip_bootsnap
+    assert_option :skip_dev_gems
+    assert_option :skip_hotwire
+    assert_option :skip_javascript
+    assert_option :skip_jbuilder
+    assert_option :skip_system_test
+  end
 
-    assert_no_gem "jbuilder"
-    assert_no_gem "web-console"
+  def test_minimal_rails_app_with_no_skip_implied_option
+    generator([destination_root], ["--minimal", "--no-skip-action-text"])
+
+    assert_option :minimal
+    assert_option :skip_action_mailbox
+    assert_not_option :skip_action_text
+    assert_not_option :skip_active_storage
+  end
+
+  def test_minimal_rails_app_with_no_skip_intermediary_implied_option
+    generator([destination_root], ["--minimal", "--no-skip-active-storage"])
+
+    assert_option :minimal
+    assert_option :skip_action_mailbox
+    assert_option :skip_action_text
+    assert_not_option :skip_active_storage
   end
 
   def test_name_option
@@ -1136,5 +1157,13 @@ class AppGeneratorTest < Rails::Generators::TestCase
 
     def action(*args, &block)
       capture(:stdout) { generator.send(*args, &block) }
+    end
+
+    def assert_option(option)
+      assert generator.options[option], "Expected generator option #{option.inspect} to be truthy."
+    end
+
+    def assert_not_option(option)
+      assert_not generator.options[option], "Expected generator option #{option.inspect} to be falsy."
     end
 end
