@@ -493,6 +493,11 @@ module Rails
       ordered_railties.flatten - [self]
     end
 
+    def load_generators(app = self) # :nodoc:
+      app.config.generators.templates.unshift(*paths["lib/templates"].existent)
+      super
+    end
+
     # Eager loads the application code.
     def eager_load!
       Rails.autoloaders.each(&:eager_load)

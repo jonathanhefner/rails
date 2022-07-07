@@ -10,10 +10,6 @@ module Rails
     module Finisher
       include Initializable
 
-      initializer :add_generator_templates do
-        config.generators.templates.unshift(*paths["lib/templates"].existent)
-      end
-
       initializer :setup_main_autoloader do
         autoloader = Rails.autoloaders.main
 
