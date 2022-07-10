@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require "active_support/encrypted_file"
 
 module Rails
@@ -7,7 +8,7 @@ module Rails
     module Helpers
       module Editor
         private
-          def ensure_editor_available
+          def check_system_editor_available
             if ENV["EDITOR"].to_s.empty?
               say "No $EDITOR to open file in. Assign one like this:"
               say ""
@@ -20,6 +21,10 @@ module Rails
             else
               true
             end
+          end
+
+          def system_editor(file_path)
+            system(*Shellwords.split(ENV["EDITOR"]), file_path.to_s)
           end
 
           def catch_editing_exceptions
