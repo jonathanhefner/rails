@@ -1,3 +1,33 @@
+*   Fix `Time#change` and `Time#advance` behavior for local times within the
+    final hour of daylight savings time (DST).
+
+    Previously, calling `change` or `advance` on a local time within the final
+    hour of DST would change the time offset to standard time.  For example:
+
+    ```ruby
+    ENV["TZ"] = "US/Eastern"
+    time = Time.local(2021, 11, 07, 00, 59, 59) + 2
+    # => 2021-11-07 01:00:01 -0400
+    time.change(year: 2021)
+    # => 2021-11-07 01:00:01 -0500
+    time.advance(seconds: 0)
+    # => 2021-11-07 01:00:01 -0500
+    ```
+
+    Now, the time offset is preserved:
+
+    ```ruby
+    ENV["TZ"] = "US/Eastern"
+    time = Time.local(2021, 11, 07, 00, 59, 59) + 2
+    # => 2021-11-07 01:00:01 -0400
+    time.change(year: 2021)
+    # => 2021-11-07 01:00:01 -0400
+    time.advance(seconds: 0)
+    # => 2021-11-07 01:00:01 -0400
+    ```
+
+    *Kevin Hall*, *Takayoshi Nishida*, and *Jonathan Hefner*
+
 *   Fix `NoMethodError` on custom `ActiveSupport::Deprecation` behavior.
 
     `ActiveSupport::Deprecation.behavior=` was supposed to accept any object

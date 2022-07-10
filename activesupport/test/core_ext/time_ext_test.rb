@@ -463,6 +463,20 @@ class TimeExtCalculationsTest < ActiveSupport::TestCase
     assert_raise(ArgumentError) { Time.new(2005, 2, 22, 15, 15, 45, "+01:00").change(nsec: 1000000000, offset: -28800) }
   end
 
+  def test_change_preserves_dst_flag_when_dst_is_ending
+    # When DST ends, clocks roll back and there is a 2nd occurrence of the
+    # preceding hour. For example, when DST ended at 2005-10-30 2:00:00 AM in
+    # US/Eastern, there were two occurrences of 1:00:00 AM..1:59:59 AM -- one
+    # for -0400 and one for -0500.
+    with_env_tz "US/Eastern" do
+      time = Time.local(2005, 10, 30, 00, 59, 59) + 2 # 2005-10-30 01:00:01 -0400
+      assert_equal time, time.change(year: 2005)
+
+      time = Time.local(2005, 10, 30, 01, 00, 01)     # 2005-10-30 01:00:01 -0500
+      assert_equal time, time.change(year: 2005)
+    end
+  end
+
   def test_advance
     assert_equal Time.local(2006, 2, 28, 15, 15, 10), Time.local(2005, 2, 28, 15, 15, 10).advance(years: 1)
     assert_equal Time.local(2005, 6, 28, 15, 15, 10), Time.local(2005, 2, 28, 15, 15, 10).advance(months: 4)
@@ -549,6 +563,22 @@ class TimeExtCalculationsTest < ActiveSupport::TestCase
     assert_equal Time.local(1582, 10, 4, 15, 15, 10), Time.local(1582, 10, 5, 15, 15, 10).advance(days: -1)
     assert_equal Time.local(999, 10, 4, 15, 15, 10), Time.local(1000, 10, 4, 15, 15, 10).advance(years: -1)
     assert_equal Time.local(1000, 10, 4, 15, 15, 10), Time.local(999, 10, 4, 15, 15, 10).advance(years: 1)
+  end
+
+  def test_advance_preserves_dst_flag_when_dst_is_ending
+    # When DST ends, clocks roll back and there is a 2nd occurrence of the
+    # preceding hour. For example, when DST ended at 2005-10-30 2:00:00 AM in
+    # US/Eastern, there were two occurrences of 1:00:00 AM..1:59:59 AM -- one
+    # for -0400 and one for -0500.
+    with_env_tz "US/Eastern" do
+      time = Time.local(2005, 10, 30, 00, 59, 59) + 2  # 2005-10-30 01:00:01 -0400
+      assert_equal time + 2, time.advance(seconds: 2)  # 2005-10-30 01:00:03 -0400
+      assert_equal time - 2, time.advance(seconds: -2) # 2005-10-30 00:59:59 -0400
+
+      time = Time.local(2005, 10, 30, 01, 00, 01)      # 2005-10-30 01:00:01 -0500
+      assert_equal time + 2, time.advance(seconds: 2)  # 2005-10-30 01:00:03 -0500
+      assert_equal time - 2, time.advance(seconds: -2) # 2005-10-30 01:59:59 -0400
+    end
   end
 
   def test_last_week

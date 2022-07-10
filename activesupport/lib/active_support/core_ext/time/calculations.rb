@@ -162,7 +162,7 @@ class Time
     elsif zone&.respond_to?(:utc_to_local)
       ::Time.new(new_year, new_month, new_day, new_hour, new_min, new_sec, zone)
     elsif zone
-      ::Time.local(new_year, new_month, new_day, new_hour, new_min, new_sec)
+      ::Time.local(new_sec, new_min, new_hour, new_day, new_month, new_year, nil, nil, isdst, nil)
     else
       ::Time.new(new_year, new_month, new_day, new_hour, new_min, new_sec, utc_offset)
     end
