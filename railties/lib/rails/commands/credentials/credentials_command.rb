@@ -36,12 +36,7 @@ module Rails
         ensure_credentials_have_been_added
         ensure_diffing_driver_is_configured
 
-        catch_editing_exceptions do
-          change_credentials_in_system_editor
-        end
-
-        say "File encrypted and saved."
-
+        change_credentials_in_system_editor
         warn_if_credentials_are_invalid
       rescue ActiveSupport::MessageEncryptor::InvalidMessage
         say "Couldn't decrypt #{content_path}. Perhaps you passed the wrong key?"
@@ -92,8 +87,11 @@ module Rails
         end
 
         def change_credentials_in_system_editor
-          credentials.change do |tmp_path|
-            system(*Shellwords.split(ENV["EDITOR"]), tmp_path.to_s)
+          catch_editing_exceptions do
+            credentials.change do |tmp_path|
+              system(*Shellwords.split(ENV["EDITOR"]), tmp_path.to_s)
+            end
+            say "File encrypted and saved."
           end
         end
 

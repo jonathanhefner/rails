@@ -27,12 +27,7 @@ module Rails
         ensure_encryption_key_has_been_added if encrypted_configuration.key.nil?
         ensure_encrypted_configuration_has_been_added
 
-        catch_editing_exceptions do
-          change_encrypted_configuration_in_system_editor
-        end
-
-        say "File encrypted and saved."
-
+        change_encrypted_configuration_in_system_editor
         warn_if_encrypted_configuration_is_invalid
       rescue ActiveSupport::MessageEncryptor::InvalidMessage
         say "Couldn't decrypt #{content_path}. Perhaps you passed the wrong key?"
@@ -67,8 +62,11 @@ module Rails
         end
 
         def change_encrypted_configuration_in_system_editor
-          encrypted_configuration.change do |tmp_path|
-            system("#{ENV["EDITOR"]} #{tmp_path}")
+          catch_editing_exceptions do
+            encrypted_configuration.change do |tmp_path|
+              system("#{ENV["EDITOR"]} #{tmp_path}")
+            end
+            say "File encrypted and saved."
           end
         end
 
