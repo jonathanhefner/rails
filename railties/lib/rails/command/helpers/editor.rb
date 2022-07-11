@@ -7,11 +7,11 @@ module Rails
     module Helpers
       module Editor
         private
-          def ensure_editor_available(command:)
+          def ensure_editor_available
             if ENV["EDITOR"].to_s.empty?
               say "No $EDITOR to open file in. Assign one like this:"
               say ""
-              say %(EDITOR="mate --wait" #{command})
+              say %(EDITOR="mate --wait" #{executable(current_subcommand)})
               say ""
               say "For editors that fork and exit immediately, it's important to pass a wait flag,"
               say "otherwise the credentials will be saved immediately with no chance to edit."

@@ -24,7 +24,7 @@ module Rails
         require_application!
         encrypted = Rails.application.encrypted(file_path, key_path: options[:key])
 
-        ensure_editor_available(command: "bin/rails encrypted:edit") || (return)
+        ensure_editor_available || (return)
         ensure_encryption_key_has_been_added(options[:key]) if encrypted.key.nil?
         ensure_encrypted_file_has_been_added(file_path, options[:key])
 
@@ -77,9 +77,9 @@ module Rails
 
         def missing_encrypted_message(key:, key_path:, file_path:)
           if key.nil?
-            "Missing '#{key_path}' to decrypt data. See `bin/rails encrypted:help`"
+            "Missing '#{key_path}' to decrypt data. See `#{executable(:help)}`"
           else
-            "File '#{file_path}' does not exist. Use `bin/rails encrypted:edit #{file_path}` to change that."
+            "File '#{file_path}' does not exist. Use `#{executable(:edit)} #{file_path}` to change that."
           end
         end
     end
