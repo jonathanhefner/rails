@@ -49,6 +49,10 @@ module ActiveSupport
       read_env_key || read_key_file || handle_missing_key
     end
 
+    def key?
+      read_env_key || defined?(@key_file_contents) || key_path.exist?
+    end
+
     # Reads the file and returns the decrypted content.
     #
     # Raises:

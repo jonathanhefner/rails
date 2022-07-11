@@ -29,23 +29,45 @@ class Rails::Command::EncryptedCommandTest < ActiveSupport::TestCase
     end
   end
 
-  test "edit command does not add master key to gitignore when already exist" do
+  test "edit command adds master key" do
+    remove_file "config/master.key"
+    app_file ".gitignore", ""
     run_edit_command
 
-    Dir.chdir(app_path) do
-      assert_match "/config/master.key", File.read(".gitignore")
-    end
+    assert_file "config/master.key"
+    assert_match "config/master.key", read_file(".gitignore")
+  end
+
+  test "edit command does not overwrite master key file if it already exists" do
+    master_key = read_file("config/master.key")
+    run_edit_command
+
+    assert_equal master_key, read_file("config/master.key")
+  end
+
+  test "edit command does not add duplicate master key entries to gitignore" do
+    2.times { run_edit_command }
+
+    assert_equal 1, read_file(".gitignore").scan("config/master.key").length
+  end
+
+  test "edit command can add master key when require_master_key is true" do
+    remove_file "config/master.key"
+    add_to_config "config.require_master_key = true"
+
+    assert_nothing_raised { run_edit_command }
+    assert_file "config/master.key"
   end
 
   test "edit command does not add master key when `RAILS_MASTER_KEY` env specified" do
-    Dir.chdir(app_path) do
-      key = IO.binread("config/master.key").strip
-      FileUtils.rm("config/master.key")
+    master_key = read_file("config/master.key")
+    remove_file "config/master.key"
+    app_file ".gitignore", ""
 
-      switch_env("RAILS_MASTER_KEY", key) do
-        run_edit_command
-        assert_not File.exist?("config/master.key")
-      end
+    switch_env("RAILS_MASTER_KEY", master_key) do
+      run_edit_command
+      assert_no_file "config/master.key"
+      assert_no_match "config/master.key", read_file(".gitignore")
     end
   end
 
@@ -132,5 +154,17 @@ class Rails::Command::EncryptedCommandTest < ActiveSupport::TestCase
       args = [ file ]
       args.push("--key", key) if key
       args
+    end
+
+    def read_file(relative)
+      File.read(app_path(relative))
+    end
+
+    def assert_file(relative)
+      assert File.exist?(app_path(relative)), "Expected file #{relative.inspect} to exist, but it does not"
+    end
+
+    def assert_no_file(relative)
+      assert_not File.exist?(app_path(relative)), "Expected file #{relative.inspect} to not exist, but it does"
     end
 end
