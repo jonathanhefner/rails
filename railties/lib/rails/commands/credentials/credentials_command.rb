@@ -29,7 +29,7 @@ module Rails
         require_application!
         load_generators
 
-        ensure_encryption_key_has_been_added if credentials.key.nil?
+        ensure_encryption_key_has_been_added
         ensure_credentials_have_been_added
         ensure_diffing_driver_is_configured
 
@@ -72,6 +72,8 @@ module Rails
         end
 
         def ensure_encryption_key_has_been_added
+          return if credentials.nil?
+
           require "rails/generators/rails/encryption_key_file/encryption_key_file_generator"
           encryption_key_file_generator = Rails::Generators::EncryptionKeyFileGenerator.new
           encryption_key_file_generator.add_key_file(key_path)
@@ -99,7 +101,7 @@ module Rails
         end
 
         def missing_credentials_message
-          if credentials.key.nil?
+          if !credentials.key?
             "Missing '#{key_path}' to decrypt credentials. See `#{executable(:help)}`"
           else
             "File '#{content_path}' does not exist. Use `#{executable(:edit)}` to change that."

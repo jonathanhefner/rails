@@ -23,7 +23,7 @@ module Rails
       def edit(*)
         require_application!
 
-        ensure_encryption_key_has_been_added if encrypted_configuration.key.nil?
+        ensure_encryption_key_has_been_added
         ensure_encrypted_configuration_has_been_added
 
         change_encrypted_configuration_in_system_editor
@@ -52,6 +52,7 @@ module Rails
         end
 
         def ensure_encryption_key_has_been_added
+          return if encrypted_configuration.key?
           encryption_key_file_generator.add_key_file(key_path)
           encryption_key_file_generator.ignore_key_file(key_path)
         end
@@ -90,7 +91,7 @@ module Rails
         end
 
         def missing_encrypted_configuration_message
-          if encrypted_configuration.key.nil?
+          if !encrypted_configuration.key?
             "Missing '#{key_path}' to decrypt data. See `#{executable(:help)}`"
           else
             "File '#{content_path}' does not exist. Use `#{executable(:edit)} #{content_path}` to change that."

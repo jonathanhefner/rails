@@ -49,6 +49,10 @@ module ActiveSupport
       read_env_key || read_key_file || handle_missing_key
     end
 
+    def key?
+      read_env_key || read_key_file
+    end
+
     def read
       if !key.nil? && content_path.exist?
         decrypt content_path.binread
