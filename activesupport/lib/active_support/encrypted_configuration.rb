@@ -26,6 +26,8 @@ module ActiveSupport
     def write(contents)
       deserialize(contents)
 
+      @config = nil
+      @options = nil
       super
     end
 
