@@ -3,7 +3,6 @@
 require "active_support/core_ext/enumerable"
 require "active_support/core_ext/module/delegation"
 require "active_support/core_ext/string/filters"
-require "active_support/constantizing_proxy"
 require "active_support/parameter_filter"
 require "concurrent/map"
 
@@ -21,8 +20,12 @@ module ActiveRecord
       # retrieved on both a class and instance level by calling +logger+.
       class_attribute :logger, instance_writer: false
 
+      ##
+      # :singleton-method:
+      #
+      # The job class used to destroy associations in the background.
       class_attribute :destroy_association_async_job, instance_accessor: false,
-        default: ActiveSupport::ConstantizingProxy.new("ActiveRecord::DestroyAssociationAsyncJob")
+        "ActiveRecord::DestroyAssociationAsyncJob".constantize(lazy: true)
 
       ##
       # :singleton-method:
