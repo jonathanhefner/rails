@@ -61,9 +61,6 @@ class String
     ActiveSupport::Inflector.singularize(self, locale)
   end
 
-  ##
-  # :call-seq: constantize()
-  #
   # +constantize+ tries to find a declared constant with the name specified
   # in the string. It raises a NameError when the name is not in CamelCase
   # or is not initialized.
@@ -73,13 +70,8 @@ class String
   #   'blargle'.constantize # => NameError: wrong constant name blargle
   #
   # See ActiveSupport::Inflector.constantize.
-  def constantize(lazy: false)
-    if lazy
-      require "active_support/constantizing_proxy"
-      ActiveSupport::ConstantizingProxy.new(self)
-    else
-      ActiveSupport::Inflector.constantize(self)
-    end
+  def constantize
+    ActiveSupport::Inflector.constantize(self)
   end
 
   # +safe_constantize+ tries to find a declared constant with the name specified

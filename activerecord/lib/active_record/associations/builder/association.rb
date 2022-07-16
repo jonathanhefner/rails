@@ -127,7 +127,7 @@ module ActiveRecord::Associations::Builder # :nodoc:
     end
 
     def self.check_dependent_options(dependent, model)
-      if dependent == :destroy_async && !model.destroy_association_async_job
+      if dependent == :destroy_async && model.destroy_association_async_job.nil?
         err_message = "A valid destroy_association_async_job is required to use `dependent: :destroy_async` on associations"
         raise ActiveRecord::ConfigurationError, err_message
       end

@@ -5,6 +5,7 @@ require "action_mailer/collector"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
+require "active_support/constantizing_proxy"
 
 require "action_mailer/log_subscriber"
 require "action_mailer/rescuable"
@@ -486,7 +487,16 @@ module ActionMailer
 
     helper ActionMailer::MailHelper
 
-    class_attribute :delivery_job, default: "ActionMailer::MailDeliveryJob".constantize(lazy: true)
+    class_attribute :delivery_job
+
+    singleton_class.alias_method :_delivery_job=, :delivery_job=
+
+    def self.delivery_job=(job)
+      self._delivery_job = ActiveSupport::ConstantizingProxy(job)
+    end
+
+    self.delivery_job = "ActionMailer::MailDeliveryJob"
+
     class_attribute :default_params, default: {
       mime_version: "1.0",
       charset:      "UTF-8",

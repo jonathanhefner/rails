@@ -14,4 +14,8 @@ module ActiveSupport
 
     delegate_missing_to :__constantized__
   end
+
+  def self.ConstantizingProxy(value)
+    value.is_a?(String) ? ConstantizingProxy.new(value) : value
+  end
 end
