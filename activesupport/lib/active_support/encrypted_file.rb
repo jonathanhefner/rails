@@ -49,6 +49,10 @@ module ActiveSupport
       read_env_key || read_key_file || handle_missing_key
     end
 
+    def key?
+      read_env_key || read_key_file(refresh: true)
+    end
+
     # Reads the file and returns the decrypted content.
     #
     # Raises:
@@ -109,8 +113,8 @@ module ActiveSupport
         ENV[env_key].presence
       end
 
-      def read_key_file
-        return @key_file_contents if defined?(@key_file_contents)
+      def read_key_file(refresh: false)
+        return @key_file_contents if !refresh && defined?(@key_file_contents)
         @key_file_contents = (key_path.binread.strip if key_path.exist?)
       end
 
