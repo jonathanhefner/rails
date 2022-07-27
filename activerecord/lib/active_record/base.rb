@@ -329,6 +329,8 @@ module ActiveRecord # :nodoc:
     include SignedId
     include Suppressor
     include Encryption::EncryptableRecord
+
+attr_accessor :preloading_bucket
   end
 
   ActiveSupport.run_load_hooks(:active_record, Base)

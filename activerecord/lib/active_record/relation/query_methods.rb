@@ -195,13 +195,34 @@ module ActiveRecord
     # other additional posts.
     def includes(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.includes!(*args)
+      # spawn.includes!(*args)
+      spawn_for_preloading.includes!(*args)
+      # spawn.includes!(*args).tap{|x| x.load_records(@records, loaded: false) }
+      # spawn.with_records(@records).includes!(*args)
     end
 
     def includes!(*args) # :nodoc:
       self.includes_values |= args
       self
     end
+
+def spawn_for_preloading
+  # relation = spawn
+  # # relation.records = records if loaded?
+  # relation.records = @records
+  # relation
+
+  # spawn.tap { |relation| relation.records = records if loaded? }
+  # spawn.tap { |relation| relation.records = @records }
+  # spawn.with_records(@records)
+
+  # relation = spawn
+  # relation._records = _records
+  # relation
+
+  spawn.tap { |relation| relation._records = _records }
+end
+
 
     # Forces eager loading by performing a LEFT OUTER JOIN on +args+:
     #
@@ -211,7 +232,10 @@ module ActiveRecord
     #   # "users"."id"
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.eager_load!(*args)
+      # spawn.eager_load!(*args)
+      spawn_for_preloading.eager_load!(*args)
+      # spawn.eager_load!(*args).tap{|x| x.load_records(@records, loaded: false) }
+      # spawn.with_records(@records).eager_load!(*args)
     end
 
     def eager_load!(*args) # :nodoc:
@@ -225,7 +249,10 @@ module ActiveRecord
     #   # SELECT "posts".* FROM "posts" WHERE "posts"."user_id" IN (1, 2, 3)
     def preload(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.preload!(*args)
+      # spawn.preload!(*args)
+      spawn_for_preloading.preload!(*args)
+      # spawn.preload!(*args).tap{|x| x.load_records(@records, loaded: false) }
+      # spawn.with_records(@records).preload!(*args)
     end
 
     def preload!(*args) # :nodoc:

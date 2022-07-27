@@ -56,11 +56,17 @@ module ActiveRecord
         end
 
         def source_records
-          @parent.preloaded_records
+          @source_records ||= incorporate_records_from_record_buckets(@parent.preloaded_records)
+          # @parent.preloaded_records.
+          #   flat_map{|r| r.instance_variable_get(:@preg).to_a + [r] }.uniq.
+          #   tap{|rs| STDERR.puts ["?"*50, @association, rs.map(&:id)].inspect }
         end
 
         def preloaded_records
+# STDERR.puts ["!"*80, @association].inspect
           @preloaded_records ||= loaders.flat_map(&:preloaded_records)
+          # @preloaded_records ||= loaders.flat_map(&:preloaded_records).
+          #   tap{|rs| rs.each{|r| r.instance_variable_set(:@preg, rs) }}
         end
 
         def done?
@@ -95,7 +101,7 @@ module ActiveRecord
 
             [klass, reflection_scope]
           end.map do |(rhs_klass, reflection_scope), rs|
-            preloader_for(reflection).new(rhs_klass, rs, reflection, scope, reflection_scope, associate_by_default)
+            preloader_for(reflection).new(rhs_klass, rs, reflection, scope, reflection_scope, bucket, associate_by_default)
           end
         end
 
@@ -140,6 +146,18 @@ module ActiveRecord
             else
               Association
             end
+          end
+
+          def bucket
+            @bucket ||= source_records.map { |record| WeakRef.new(record.association(association)) }
+          end
+
+          def incorporate_records_from_record_buckets(records)
+            records.map(&:preloading_bucket).uniq.flat_map do |bucket|
+              bucket&.flat_map do |association|
+                association.target if association.weakref_alive?
+              end
+            end.compact.concat(records).uniq
           end
       end
     end

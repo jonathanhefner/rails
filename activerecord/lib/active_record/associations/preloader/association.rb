@@ -84,12 +84,13 @@ module ActiveRecord
 
         attr_reader :klass
 
-        def initialize(klass, owners, reflection, preload_scope, reflection_scope, associate_by_default)
+        def initialize(klass, owners, reflection, preload_scope, reflection_scope, bucket, associate_by_default)
           @klass         = klass
           @owners        = owners.uniq(&:__id__)
           @reflection    = reflection
           @preload_scope = preload_scope
           @reflection_scope = reflection_scope
+          @bucket        = bucket
           @associate     = associate_by_default || !preload_scope || preload_scope.empty_scope?
           @model         = owners.first && owners.first.class
           @run = false
@@ -119,10 +120,16 @@ module ActiveRecord
           return self if run?
           @run = true
 
-          records = records_by_owner
+          # records = records_by_owner
+# STDERR.puts ["!"*80, records.values.flatten(1).map(&:id)].inspect
+# records.values.flatten(1).tap{|rs| rs.each{|r| r.instance_variable_set(:@preg, rs) }}
+
+          preloaded_records.each do |record|
+            record.preloading_bucket = @bucket
+          end
 
           owners.each do |owner|
-            associate_records_to_owner(owner, records[owner] || [])
+            associate_records_to_owner(owner, records_by_owner[owner] || [])
           end if @associate
 
           self

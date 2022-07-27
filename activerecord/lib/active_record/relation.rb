@@ -843,9 +843,25 @@ module ActiveRecord
     end
 
     protected
+#       attr_writer :records
+
+# def with_records(records)
+#   @records = records.freeze
+#   self
+# end
+      def _records
+        @records
+      end
+
+      def _records=(records)
+        @records = records
+      end
+
       def load_records(records)
+# def load_records(records, loaded: true)
         @records = records.freeze
         @loaded = true
+        # @loaded = loaded
       end
 
       def null_relation? # :nodoc:
@@ -915,22 +931,40 @@ module ActiveRecord
         expr.expr
       end
 
+# protected attr_accessor :_latent_records
+
+# def spawn_for_preloading
+#   # spawn.tap{|x| puts '1'; x.records = self.records if (puts '2'; loaded?); puts '3' }
+#   # clone.tap{|x| puts '1'; x.load_records(self.records) if (puts '2'; loaded?); puts '3' }
+# STDERR.puts ['HERE1', records].inspect
+#   spawn.tap do |relation|
+# STDERR.puts ['HERE2', records].inspect
+#     relation._latent_records = @records
+#   end
+# end
+
       def exec_queries(&block)
         skip_query_cache_if_necessary do
-          rows = if scheduled?
-            future = @future_result
-            @future_result = nil
-            future.result
+          # if _latent_records
+          #   records = _latent_records
+          if @records
+            records = @records
           else
-            exec_main_query
+            rows = if scheduled?
+              future = @future_result
+              @future_result = nil
+              future.result
+            else
+              exec_main_query
+            end
+
+            records = instantiate_records(rows, &block)
+
+            records.each(&:readonly!) if readonly_value
+            records.each { |record| record.strict_loading!(strict_loading_value) } unless strict_loading_value.nil?
           end
 
-          records = instantiate_records(rows, &block)
           preload_associations(records) unless skip_preloading_value
-
-          records.each(&:readonly!) if readonly_value
-          records.each { |record| record.strict_loading!(strict_loading_value) } unless strict_loading_value.nil?
-
           records
         end
       end
