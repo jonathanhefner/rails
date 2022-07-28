@@ -933,7 +933,7 @@ module ActiveRecord
       # Returns a <tt>Relation</tt> object for the records in this association
       def scope
         @scope ||= @association.scope
-        @scope.load_records(records) if loaded? && !@scope.loaded?
+        @scope._records ||= records if loaded?
         @scope
       end
 

@@ -143,7 +143,7 @@ module ActiveRecord
           end
 
           def bucket
-            @bucket ||= source_records.map { |record| WeakRef.new(record.association(association)) }
+            @bucket ||= grouped_records.values.flatten.map! { |record| WeakRef.new(record.association(association)) }
           end
 
           def incorporate_records_from_record_buckets(records)
@@ -151,7 +151,7 @@ module ActiveRecord
               bucket&.flat_map do |association|
                 association.target if association.weakref_alive?
               end
-            end.compact.concat(records).uniq
+            end.compact.concat(records)
           end
       end
     end
