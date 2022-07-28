@@ -41,10 +41,6 @@ module ActiveRecord
 
       def load_target
         @association.load_target
-        # @association.load_target.
-        #   tap { |records|
-        #     # scope.load_records(records)
-        #   }
       end
 
       # Returns +true+ if the association has been loaded, otherwise +false+.
@@ -937,8 +933,8 @@ module ActiveRecord
       # Returns a <tt>Relation</tt> object for the records in this association
       def scope
         @scope ||= @association.scope
-    @scope.load_records(records) if loaded? && !@scope.loaded?
-    @scope
+        @scope.load_records(records) if loaded? && !@scope.loaded?
+        @scope
       end
 
       # Equivalent to <tt>Array#==</tt>. Returns +true+ if the two arrays
@@ -1118,12 +1114,6 @@ module ActiveRecord
       ]
 
       delegate(*delegate_methods, to: :scope)
-
-
-      # def spawn
-      #   scope.spawn.tap{|x| x.load_records(records) if loaded? }
-      # end
-
 
       private
         def find_nth_with_limit(index, limit)

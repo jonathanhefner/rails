@@ -57,16 +57,10 @@ module ActiveRecord
 
         def source_records
           @source_records ||= incorporate_records_from_record_buckets(@parent.preloaded_records)
-          # @parent.preloaded_records.
-          #   flat_map{|r| r.instance_variable_get(:@preg).to_a + [r] }.uniq.
-          #   tap{|rs| STDERR.puts ["?"*50, @association, rs.map(&:id)].inspect }
         end
 
         def preloaded_records
-# STDERR.puts ["!"*80, @association].inspect
           @preloaded_records ||= loaders.flat_map(&:preloaded_records)
-          # @preloaded_records ||= loaders.flat_map(&:preloaded_records).
-          #   tap{|rs| rs.each{|r| r.instance_variable_set(:@preg, rs) }}
         end
 
         def done?

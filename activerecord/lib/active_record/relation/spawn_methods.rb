@@ -7,7 +7,6 @@ require "active_record/relation/merger"
 module ActiveRecord
   module SpawnMethods
     def spawn # :nodoc:
-# STDERR.puts [already_in_scope?(klass.scope_registry) ? -1111 : -2222].inspect
       already_in_scope?(klass.scope_registry) ? klass.all : clone
     end
 

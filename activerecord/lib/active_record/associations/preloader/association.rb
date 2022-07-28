@@ -120,10 +120,6 @@ module ActiveRecord
           return self if run?
           @run = true
 
-          # records = records_by_owner
-# STDERR.puts ["!"*80, records.values.flatten(1).map(&:id)].inspect
-# records.values.flatten(1).tap{|rs| rs.each{|r| r.instance_variable_set(:@preg, rs) }}
-
           preloaded_records.each do |record|
             record.preloading_bucket = @bucket
           end
