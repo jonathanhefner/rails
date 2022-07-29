@@ -4,6 +4,8 @@ module ActiveRecord
   module Associations
     class Preloader
       class Branch # :nodoc:
+        include Bucketing
+
         attr_reader :association, :children, :parent
         attr_reader :scope, :associate_by_default
         attr_writer :preloaded_records
@@ -56,7 +58,7 @@ module ActiveRecord
         end
 
         def source_records
-          @source_records ||= incorporate_records_from_record_buckets(@parent.preloaded_records)
+          @source_records ||= gather_records_from_linked_buckets(@parent.preloaded_records)
         end
 
         def preloaded_records
@@ -143,15 +145,7 @@ module ActiveRecord
           end
 
           def bucket
-            @bucket ||= grouped_records.values.flatten.map! { |record| WeakRef.new(record.association(association)) }
-          end
-
-          def incorporate_records_from_record_buckets(records)
-            records.map(&:preloading_bucket).uniq.flat_map do |bucket|
-              bucket&.flat_map do |association|
-                association.target if association.weakref_alive?
-              end
-            end.compact.concat(records)
+            @bucket ||= build_bucket(grouped_records.values.flatten, association)
           end
       end
     end
