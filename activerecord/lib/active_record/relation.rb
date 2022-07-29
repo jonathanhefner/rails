@@ -926,7 +926,7 @@ module ActiveRecord
       def exec_queries(&block)
         skip_query_cache_if_necessary do
           if @records
-            records = @records
+            records = @records.dup.freeze
           else
             rows = if scheduled?
               future = @future_result

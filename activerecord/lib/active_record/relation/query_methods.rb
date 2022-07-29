@@ -211,7 +211,7 @@ module ActiveRecord
     #   # "users"."id"
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn_for_preloading.eager_load!(*args)
+      spawn.eager_load!(*args)
     end
 
     def eager_load!(*args) # :nodoc:
