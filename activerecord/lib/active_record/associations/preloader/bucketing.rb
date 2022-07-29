@@ -18,7 +18,7 @@ module ActiveRecord
           end
 
           def link_records_to_bucket(target_records, bucket)
-            target_records.each { |record| record.preloading_bucket = @bucket }
+            target_records.each { |record| record.preloading_bucket = bucket }
           end
       end
     end
