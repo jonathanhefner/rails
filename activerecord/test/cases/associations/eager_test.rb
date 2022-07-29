@@ -1675,6 +1675,26 @@ class EagerAssociationTest < ActiveRecord::TestCase
     end
   end
 
+  test "post-hoc included associations use already-loaded owner records" do
+    posts = Author.first.posts.load
+
+    assert_queries(1) do
+      posts.includes(:comments).each { |post| post.comments.to_a }
+    end
+  end
+
+  test "post-hoc included associations preload records for entire preloading bucket" do
+    authors = Author.all
+
+    assert_queries(3) do
+      authors.includes(:posts).each do |author|
+        author.posts.includes(:comments).each do |post|
+          post.comments.to_a
+        end
+      end
+    end
+  end
+
   private
     def find_all_ordered(klass, include = nil)
       klass.order("#{klass.table_name}.#{klass.primary_key}").includes(include).to_a
