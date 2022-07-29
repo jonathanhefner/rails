@@ -128,16 +128,6 @@ module ActiveRecord
             link_records_to_bucket(records, @bucket)
           end if @associate
 
-# unless @preloaded_records
-#   # puts [!!@preloaded_records, self.class].inspect
-#   # pp reflection
-#   # pp @bucket
-#   pp records_by_owner.first.first
-#   puts "#{ @reflection.name } / #{records_by_owner.first.last.first.preloading_bucket.first.reflection.name} ===============>"
-#   pp records_by_owner.first.last.first
-#   puts '-'*80
-# end
-
           self
         end
 
