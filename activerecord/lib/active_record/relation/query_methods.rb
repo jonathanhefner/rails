@@ -195,7 +195,7 @@ module ActiveRecord
     # other additional posts.
     def includes(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.includes!(*args)
+      spawn_for_preloading.includes!(*args)
     end
 
     def includes!(*args) # :nodoc:
@@ -225,7 +225,7 @@ module ActiveRecord
     #   # SELECT "posts".* FROM "posts" WHERE "posts"."user_id" IN (1, 2, 3)
     def preload(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.preload!(*args)
+      spawn_for_preloading.preload!(*args)
     end
 
     def preload!(*args) # :nodoc:
@@ -1396,6 +1396,10 @@ module ActiveRecord
     private
       def async
         spawn.async!
+      end
+
+      def spawn_for_preloading
+        spawn.tap { |relation| relation._records = _records }
       end
 
       def lookup_table_klass_from_join_dependencies(table_name)

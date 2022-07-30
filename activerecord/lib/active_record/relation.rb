@@ -843,6 +843,14 @@ module ActiveRecord
     end
 
     protected
+      def _records
+        @records
+      end
+
+      def _records=(records)
+        @records = records
+      end
+
       def load_records(records)
         @records = records.freeze
         @loaded = true
@@ -917,20 +925,24 @@ module ActiveRecord
 
       def exec_queries(&block)
         skip_query_cache_if_necessary do
-          rows = if scheduled?
-            future = @future_result
-            @future_result = nil
-            future.result
+          if @records
+            records = @records.dup.freeze
           else
-            exec_main_query
+            rows = if scheduled?
+              future = @future_result
+              @future_result = nil
+              future.result
+            else
+              exec_main_query
+            end
+
+            records = instantiate_records(rows, &block)
+
+            records.each(&:readonly!) if readonly_value
+            records.each { |record| record.strict_loading!(strict_loading_value) } unless strict_loading_value.nil?
           end
 
-          records = instantiate_records(rows, &block)
           preload_associations(records) unless skip_preloading_value
-
-          records.each(&:readonly!) if readonly_value
-          records.each { |record| record.strict_loading!(strict_loading_value) } unless strict_loading_value.nil?
-
           records
         end
       end
