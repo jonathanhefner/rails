@@ -662,7 +662,7 @@ class RelationTest < ActiveRecord::TestCase
     end
   end
 
-  test "post-hoc included associations use already-loaded owner records" do
+  test "post-hoc preloading uses already-loaded owner records" do
     posts = Post.all.load
 
     assert_queries(1) do

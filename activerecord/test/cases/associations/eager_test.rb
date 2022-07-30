@@ -1675,7 +1675,7 @@ class EagerAssociationTest < ActiveRecord::TestCase
     end
   end
 
-  test "post-hoc included associations use already-loaded owner records" do
+  test "post-hoc preloading uses already-loaded owner records" do
     posts = Author.first.posts.load
 
     assert_queries(1) do
@@ -1683,7 +1683,8 @@ class EagerAssociationTest < ActiveRecord::TestCase
     end
   end
 
-  test "post-hoc included associations preload records for entire preloading bucket" do
+  test "post-hoc preloading loads records for entire preloading bucket" do
+    5.times { Author.create!(name: "A").posts.create!(title: "X", body: "Y") }
     authors = Author.all
 
     assert_queries(3) do
