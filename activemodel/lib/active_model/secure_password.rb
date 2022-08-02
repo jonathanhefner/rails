@@ -80,7 +80,7 @@ module ActiveModel
       #
       #   user.authenticate("vr00m")                                     # => false, old password
       #   user.authenticate("nohack4u")                                  # => user
-      def has_secure_password(attribute = :password, validations: true)
+      def has_secure_password(attribute = :password, validations: true, **options)
         # Load bcrypt gem only when has_secure_password is used.
         # This is to avoid ActiveModel (and by extension the entire framework)
         # being dependent on a binary library.
@@ -96,14 +96,18 @@ module ActiveModel
         if validations
           include ActiveModel::Validations
 
-          validation_options = validations.is_a?(Hash) ? validations : {}
+          presence_options = options.slice(:if, :unless)
 
           # This ensures the model has a password by checking whether the password_digest
           # is present, so that this works with both new and existing records. However,
           # when there is an error, the message is added to the password attribute instead
           # so that the error message will make sense to the end-user.
-          validate(validation_options) do |record|
+          validate(presence_options) do |record|
             record.errors.add(attribute, :blank) unless record.public_send("#{attribute}_digest").present?
+          end
+
+          if presence_options.any?
+            validates_absence_of attribute, **presence_options.transform_keys(&{ if: :unless, unless: :if })
           end
 
           validate do |record|
