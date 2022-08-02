@@ -651,8 +651,10 @@ module ActionDispatch
             _url_helpers = @set.url_helpers
 
             script_namer = ->(options) do
+              # STDERR.puts ["0"*10, options].inspect
               prefix_options = options.slice(*_route.segment_keys)
-              prefix_options[:relative_url_root] = "" if options[:original_script_name]
+              # prefix_options[:relative_url_root] = "" if options[:original_script_name]
+              prefix_options[:script_name] = "" if options[:original_script_name]
 
               if options[:_recall]
                 prefix_options.reverse_merge!(options[:_recall].slice(*_route.segment_keys))
@@ -660,6 +662,7 @@ module ActionDispatch
 
               # We must actually delete prefix segment keys to avoid passing them to next url_for.
               _route.segment_keys.each { |k| options.delete(k) }
+              # STDERR.puts ["0b"*10, options, prefix_options].inspect
               _url_helpers.public_send("#{name}_path", prefix_options)
             end
 
@@ -670,11 +673,18 @@ module ActionDispatch
 
               define_method :find_script_name do |options|
                 if options.key? :script_name
+                  # STDERR.puts ["1"*10, options].inspect
                   super(options)
                 else
+                  # STDERR.puts ["2"*10, options].inspect
                   script_namer.call(options)
                 end
               end
+
+              # define_method :find_relative_url_root do |options|
+              #     STDERR.puts ["3"*10, options].inspect
+              #   super
+              # end
             }
           end
       end

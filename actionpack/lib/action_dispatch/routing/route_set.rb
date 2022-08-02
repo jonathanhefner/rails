@@ -786,12 +786,15 @@ module ActionDispatch
       end
 
       def find_script_name(options)
-        options.delete(:script_name) || find_relative_url_root(options) || ""
+        # STDERR.puts ["10"*5, options].inspect
+        # options.delete(:script_name) || find_relative_url_root(options) || ""
+        options.delete(:script_name) || relative_url_root || ""
       end
 
-      def find_relative_url_root(options)
-        options.delete(:relative_url_root) || relative_url_root
-      end
+      # def find_relative_url_root(options)
+      #   STDERR.puts ["30"*5, options].inspect
+      #   options.delete(:relative_url_root) || relative_url_root
+      # end
 
       def path_for(options, route_name = nil, reserved = RESERVED_OPTIONS)
         url_for(options, route_name, PATH, nil, reserved)
