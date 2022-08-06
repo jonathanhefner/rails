@@ -71,7 +71,7 @@ module ActiveSupport
 
     # Register a new error subscriber. The subscriber must respond to
     #
-    #   report(Exception, handled: Boolean, context: Hash, source: String)
+    #   report(Exception, handled: Boolean, severity: [:error, :warning], context: Hash, source: String)
     #
     # The +report+ method +should+ never raise an error.
     def subscribe(subscriber)
