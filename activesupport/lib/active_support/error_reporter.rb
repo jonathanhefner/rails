@@ -32,8 +32,8 @@ module ActiveSupport
   # severity, and unhandled ones to +:error+.
   #
   # A +source+ can also be specified, describing where the error originates from. Error subscribers can
-  # use this to ignore certain errors. For instance, ActiveSupport may report internal errors 
-  # such as cache failures with a source like "redis_cache_store.active_support". 
+  # use this to ignore certain errors. For instance, ActiveSupport may report internal errors
+  # such as cache failures with a source like "redis_cache_store.active_support".
   # The default +source+ is "application".
   #
   # Both +handle+ and +record+ pass through the return value from the block. In the case of +handle+
