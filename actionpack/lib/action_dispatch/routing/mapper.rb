@@ -652,9 +652,11 @@ module ActionDispatch
 
             script_namer = ->(options) do
               # STDERR.puts ["0"*10, options].inspect
+              STDERR.puts [options[:original_script_name], options[:script_name]].inspect
+
               prefix_options = options.slice(*_route.segment_keys)
-              # prefix_options[:relative_url_root] = "" if options[:original_script_name]
-              prefix_options[:script_name] = "" if options[:original_script_name]
+              prefix_options[:relative_url_root] = "" if options[:original_script_name]
+              # prefix_options[:script_name] = "" if options[:original_script_name]
 
               if options[:_recall]
                 prefix_options.reverse_merge!(options[:_recall].slice(*_route.segment_keys))
@@ -677,6 +679,7 @@ module ActionDispatch
                   super(options)
                 else
                   # STDERR.puts ["2"*10, options].inspect
+                  # STDERR.puts ["???", env["SCRIPT_NAME"]].inspect
                   script_namer.call(options)
                 end
               end

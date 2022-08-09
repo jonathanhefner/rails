@@ -76,6 +76,7 @@ module ApplicationTests
         module Metrics
           class GeneratingController < ActionController::Base
             def generate_blog_route
+STDERR.puts ["#", blog._routes.object_id].inspect
               render plain: blog.post_path(1)
             end
 
@@ -125,6 +126,8 @@ module ApplicationTests
         module Blog
           class PostsController < ActionController::Base
             def index
+STDERR.puts "="*80
+STDERR.puts ["#", blog._routes.object_id].inspect
               render plain: blog.post_path(1)
             end
 
@@ -133,6 +136,7 @@ module ApplicationTests
             end
 
             def generate_application_route
+STDERR.puts ["#", main_app._routes.object_id].inspect
               path = main_app.url_for(controller: "/main",
                                  action: "index",
                                  only_path: true)
@@ -157,7 +161,13 @@ module ApplicationTests
       app_file "app/controllers/application_generating_controller.rb", <<-RUBY
         class ApplicationGeneratingController < ActionController::Base
           def engine_route
-            render plain: blog.posts_path
+STDERR.puts "="*80
+x = blog
+STDERR.puts "="*80
+y = x.posts_path
+STDERR.puts "="*80
+            render plain: y
+            # render plain: blog.posts_path
           end
 
           def engine_route_in_view
@@ -199,83 +209,114 @@ module ApplicationTests
     end
 
     test "routes generation in engine and application" do
-      # test generating engine's route from engine
+
+
+
+STDERR.puts "\n\n\n# test generating engine's route from engine"
       get "/john/blog/posts"
       assert_equal "/john/blog/posts/1", last_response.body
 
-      # test generating engine route from engine with a different context
-      get "/john/blog/different_context"
-      assert_equal "/ada/blog/posts/1", last_response.body
 
-      # test generating engine's route from engine with default_url_options
+
+
+# STDERR.puts "\n\n\n# test generating engine route from engine with a different context"
+#       get "/john/blog/different_context"
+#       assert_equal "/ada/blog/posts/1", last_response.body
+
+STDERR.puts "\n\n\n# test generating engine's route from engine with default_url_options"
       get "/john/blog/posts", {}, { "SCRIPT_NAME" => "/foo" }
       assert_equal "/foo/john/blog/posts/1", last_response.body
 
-      # test generating engine's route from application
+
+
+
+
+STDERR.puts "\n\n\n# test generating engine's route from application"
       get "/engine_route"
       assert_equal "/anonymous/blog/posts", last_response.body
 
-      get "/engine_route_in_view"
-      assert_equal "/anonymous/blog/posts", last_response.body
 
-      get "/url_for_engine_route"
-      assert_equal "/john/blog/posts", last_response.body
 
-      # test generating engine's route from application with default_url_options
+
+# STDERR.puts "\n\n\n# test generating engine's route from application"
+#       get "/engine_route_in_view"
+#       assert_equal "/anonymous/blog/posts", last_response.body
+
+# STDERR.puts "\n\n\n# test generating engine's route from application"
+#       get "/url_for_engine_route"
+#       assert_equal "/john/blog/posts", last_response.body
+
+STDERR.puts "\n\n\n# test generating engine's route from application with default_url_options"
       get "/engine_route", {}, { "SCRIPT_NAME" => "/foo" }
       assert_equal "/foo/anonymous/blog/posts", last_response.body
 
-      get "/url_for_engine_route", {}, { "SCRIPT_NAME" => "/foo" }
-      assert_equal "/foo/john/blog/posts", last_response.body
+# STDERR.puts "\n\n\n# test generating engine's route from application with default_url_options"
+#       get "/url_for_engine_route", {}, { "SCRIPT_NAME" => "/foo" }
+#       assert_equal "/foo/john/blog/posts", last_response.body
 
-      # test generating application's route from engine
+
+
+STDERR.puts "\n\n\n# test generating application's route from engine"
       get "/someone/blog/generate_application_route"
       assert_equal "/", last_response.body
 
-      get "/someone/blog/application_route_in_view"
-      assert_equal "/", last_response.body
 
-      # test generating engine's route from other engine
+
+
+# STDERR.puts "\n\n\n# test generating application's route from engine"
+#       get "/someone/blog/application_route_in_view"
+#       assert_equal "/", last_response.body
+
+
+
+
+
+STDERR.puts "\n\n\n# test generating engine's route from other engine"
       get "/metrics/generate_blog_route"
       assert_equal "/anonymous/blog/posts/1", last_response.body
 
-      get "/metrics/generate_blog_route_in_view"
-      assert_equal "/anonymous/blog/posts/1", last_response.body
+# STDERR.puts "\n\n\n# test generating engine's route from other engine"
+#       get "/metrics/generate_blog_route_in_view"
+#       assert_equal "/anonymous/blog/posts/1", last_response.body
 
-      # test generating engine's route from other engine with default_url_options
+
+
+
+STDERR.puts "\n\n\n# test generating engine's route from other engine with default_url_options"
       get "/metrics/generate_blog_route", {}, { "SCRIPT_NAME" => "/foo" }
       assert_equal "/foo/anonymous/blog/posts/1", last_response.body
 
-      get "/metrics/generate_blog_route_in_view", {}, { "SCRIPT_NAME" => "/foo" }
-      assert_equal "/foo/anonymous/blog/posts/1", last_response.body
+# STDERR.puts "\n\n\n# test generating engine's route from other engine with default_url_options"
+#       get "/metrics/generate_blog_route_in_view", {}, { "SCRIPT_NAME" => "/foo" }
+#       assert_equal "/foo/anonymous/blog/posts/1", last_response.body
 
-      # test generating application's route from engine with default_url_options
-      get "/someone/blog/generate_application_route", {}, { "SCRIPT_NAME" => "/foo" }
-      assert_equal "/foo/", last_response.body
+# STDERR.puts "\n\n\n# test generating application's route from engine with default_url_options"
+#       get "/someone/blog/generate_application_route", {}, { "SCRIPT_NAME" => "/foo" }
+#       assert_equal "/foo/", last_response.body
 
-      # test polymorphic routes
-      get "/polymorphic_route"
-      assert_equal "http://example.org/anonymous/blog/posts/44", last_response.body
+# STDERR.puts "\n\n\n# test polymorphic routes"
+#       get "/polymorphic_route"
+#       assert_equal "http://example.org/anonymous/blog/posts/44", last_response.body
 
-      # test that correct path is generated for the same polymorphic_path call in an engine
-      get "/someone/blog/engine_polymorphic_path"
-      assert_equal "/someone/blog/posts/44", last_response.body
+# STDERR.puts "\n\n\n# test that correct path is generated for the same polymorphic_path call in an engine"
+#       get "/someone/blog/engine_polymorphic_path"
+#       assert_equal "/someone/blog/posts/44", last_response.body
 
-      # and in an application
-      get "/application_polymorphic_path"
-      assert_equal "/posts/44", last_response.body
+# STDERR.puts "\n\n\n# and in an application"
+#       get "/application_polymorphic_path"
+#       assert_equal "/posts/44", last_response.body
 
-      # test that asset path will not get script_name when generated in the engine
-      get "/someone/blog/engine_asset_path"
-      assert_equal "/images/foo.png", last_response.body
-    end
+# STDERR.puts "\n\n\n# test that asset path will not get script_name when generated in the engine"
+#       get "/someone/blog/engine_asset_path"
+#       assert_equal "/images/foo.png", last_response.body
+#     end
 
-    test "route path for controller action when engine is mounted at root" do
-      get "/weblog_engine_route"
-      assert_equal "/weblog", last_response.body
+#     test "route path for controller action when engine is mounted at root" do
+#       get "/weblog_engine_route"
+#       assert_equal "/weblog", last_response.body
 
-      get "/weblog_engine_route_in_view"
-      assert_equal "/weblog", last_response.body
+#       get "/weblog_engine_route_in_view"
+#       assert_equal "/weblog", last_response.body
     end
   end
 end

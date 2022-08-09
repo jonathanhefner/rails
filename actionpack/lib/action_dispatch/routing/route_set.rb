@@ -802,6 +802,8 @@ module ActionDispatch
 
       # The +options+ argument must be a hash whose keys are *symbols*.
       def url_for(options, route_name = nil, url_strategy = UNKNOWN, method_name = nil, reserved = RESERVED_OPTIONS)
+STDERR.puts "~"*30
+# STDERR.puts [options].inspect
         options = default_url_options.merge options
 
         user = password = nil
@@ -812,6 +814,10 @@ module ActionDispatch
         end
 
         recall = options.delete(:_recall) { {} }
+
+
+STDERR.puts [options].inspect
+# STDERR.puts caller
 
         original_script_name = options.delete(:original_script_name)
         script_name = find_script_name options
@@ -846,7 +852,10 @@ module ActionDispatch
         options[:user]        = user
         options[:password]    = password
 
-        url_strategy.call options
+        url_strategy.call(options).tap do |x|
+STDERR.puts [">>>>>", x].inspect
+STDERR.puts "~"*30
+        end
       end
 
       def call(env)

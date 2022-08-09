@@ -38,8 +38,21 @@ module ActionController
       if (same_origin = _routes.equal?(request.routes)) ||
          (script_name = request.engine_script_name(_routes)) ||
          (original_script_name = request.original_script_name)
-
         options = @_url_options.dup
+
+# STDERR.puts ["???", request.original_script_name, request.script_name].inspect
+# STDERR.puts ["!!!", request.original_script_name, request.engine_script_name(_routes), _routes.env_key, _routes.object_id, self.class.name].inspect
+# # STDERR.puts ["!!!:", request.method(:original_script_name), request.method(:engine_script_name), _routes.method(:env_key)].inspect
+# STDERR.puts ["222", original_script_name, script_name, options].inspect
+
+STDERR.puts [
+  ORIGINAL_SCRIPT_NAME: request.original_script_name,
+  SCRIPT_NAME: request.script_name,
+  same_origin: same_origin,
+  engine_script_name: request.engine_script_name(_routes),
+  final: ("ORIGINAL_SCRIPT_NAME" if original_script_name) || ("SCRIPT_NAME" if same_origin) || "engine_script_name",
+].inspect
+STDERR.puts "-"*50
         if original_script_name
           options[:original_script_name] = original_script_name
         else
@@ -49,9 +62,9 @@ module ActionController
             options[:script_name] = script_name
           end
         end
-        options.freeze
+        options.freeze.tap { |x| STDERR.puts ["111111", x].inspect }
       else
-        @_url_options
+        @_url_options.tap { |x| STDERR.puts ["222222", x].inspect }
       end
     end
   end
