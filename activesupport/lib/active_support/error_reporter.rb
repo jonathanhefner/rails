@@ -112,7 +112,7 @@ module ActiveSupport
     #
     #   Rails.error.set_context(section: "checkout", user_id: @user.id)
     #
-    # When an error is reported via +handle+, +record+, or +report+, any context passed in will be merged with any context set here.
+    # Any context passed to +handle+, +record+, or +report+ will be merged with the context set here.
     # See +ActiveSupport::ExecutionContext.set+
     def set_context(...)
       ActiveSupport::ExecutionContext.set(...)
