@@ -432,7 +432,8 @@ class TimeExtCalculationsTest < ActiveSupport::TestCase
     assert_nothing_raised { Time.new(2015, 5, 9, 10, 00, 00, "+03:00").change(nsec: 999999999) }
 
     with_env_tz "US/Eastern" do
-      assert_equal 0, Time.new(2005, 10, 30, 0, 59, 59).advance(hours: 1).change({}) - Time.new(2005, 10, 30, 0, 59, 59).advance(hours: 1)
+      assert_equal Time.new(2005, 10, 30, 0, 59, 59).advance(hours: 1), Time.new(2005, 10, 30, 0, 59, 59).advance(hours: 1).change(year: 2005)
+      assert_equal Time.new(2005, 10, 30, 2, 00, 01).advance(hours: -1), Time.new(2005, 10, 30, 2, 00, 01).advance(hours: -1).change(year: 2005)
     end
   end
 
