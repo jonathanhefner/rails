@@ -12,8 +12,6 @@
 # Note that it can also be scoped per-fiber if +Rails.application.config.active_support.isolation_level+
 # is set to +:fiber+.
 class Module
-  NIL_OBJECT = Object.new
-
   # Defines a per-thread class attribute and creates class and instance reader methods.
   # The underlying per-thread class variable is set to +nil+, if it is not previously defined.
   #
@@ -44,24 +42,31 @@ class Module
     syms.each do |sym|
       raise NameError.new("invalid attribute name: #{sym}") unless /^[_A-Za-z]\w*$/.match?(sym)
 
-      # We're storing the default value in a class variable for it to be
-      # available through inheritance
-      class_variable_set(:"@@__attr_#{sym}_default", default)
       # The following generated method concatenates `name` because we want it
       # to work with inheritance via polymorphism.
-      class_eval(<<-EOS, __FILE__, __LINE__ + 1)
-        def self.#{sym}
-          @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
-          obj = ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
-
-          if obj.nil?
-            obj = @@__attr_#{sym}_default
-            ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj.nil? ? NIL_OBJECT : obj
+      if default.nil?
+        class_eval(<<-EOS, __FILE__, __LINE__ + 1)
+          def self.#{sym}
+            @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
+            ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
           end
+        EOS
+      else
+        singleton_class.define_method("#{sym}_default_value") { default }
 
-          obj == NIL_OBJECT ? nil : obj
-        end
-      EOS
+        class_eval(<<-EOS, __FILE__, __LINE__ + 1)
+          def self.#{sym}
+            @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
+            value = ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
+
+            if value.nil? && !::ActiveSupport::IsolatedExecutionState.key?(@__thread_mattr_#{sym})
+              ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = #{sym}_default_value
+            else
+              value
+            end
+          end
+        EOS
+      end
 
       if instance_reader && instance_accessor
         class_eval(<<-EOS, __FILE__, __LINE__ + 1)
@@ -70,8 +75,6 @@ class Module
           end
         EOS
       end
-
-      ::ActiveSupport::IsolatedExecutionState["attr_#{name}_#{sym}"] = default unless default.nil?
     end
   end
   alias :thread_cattr_reader :thread_mattr_reader
@@ -94,7 +97,7 @@ class Module
   #   end
   #
   #   Current.new.user = "DHH" # => NoMethodError
-  def thread_mattr_writer(*syms, instance_writer: true, instance_accessor: true, default: nil) # :nodoc:
+  def thread_mattr_writer(*syms, instance_writer: true, instance_accessor: true) # :nodoc:
     syms.each do |sym|
       raise NameError.new("invalid attribute name: #{sym}") unless /^[_A-Za-z]\w*$/.match?(sym)
 
@@ -103,8 +106,7 @@ class Module
       class_eval(<<-EOS, __FILE__, __LINE__ + 1)
         def self.#{sym}=(obj)
           @__thread_mattr_#{sym} ||= "attr_\#{name}_#{sym}"
-          ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj.nil? ? NIL_OBJECT : obj
-          obj
+          ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = obj
         end
       EOS
 
