@@ -23,6 +23,14 @@ module ActiveRecord
         end
       end
 
+      def each_pool_config(&block)
+        return enum_for(__method__) unless block
+
+        @role_to_shard_mapping.each_value do |shard_map|
+          shard_map.each_value(&block)
+        end
+      end
+
       def remove_role(role)
         @role_to_shard_mapping.delete(role)
       end
