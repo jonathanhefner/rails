@@ -1,3 +1,11 @@
+*   `thread_mattr_accessor` default values are now required to be frozen.
+
+    Specifying a non-frozen default value will raise an `ArgumentError`.  This
+    provides a basic level of protection against different threads trying to
+    mutate a shared default object.
+
+    *Jonathan Hefner*
+
 *   Add `raise_on_invalid_cache_expiration_time` config to `ActiveSupport::Cache::Store`
 
     Specifies if an `ArgumentError` should be raised if `Rails.cache` `fetch` or

@@ -62,8 +62,16 @@ class ModuleAttributeAccessorPerThreadTest < ActiveSupport::TestCase
     end.join
   end
 
+  def test_default_value_must_be_frozen
+    error = assert_raises ArgumentError do
+      @class.thread_mattr_accessor :baz, default: []
+    end
+
+    assert_match %r/frozen/, error.message
+  end
+
   def test_default_value_is_the_same_object
-    default = Object.new
+    default = [].freeze
     @class.thread_mattr_accessor :baz, default: default
 
     assert_same default, @class.baz
