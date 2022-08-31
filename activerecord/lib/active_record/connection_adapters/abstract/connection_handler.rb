@@ -96,6 +96,14 @@ module ActiveRecord
         connection_name_to_pool_manager.values.flat_map { |m| m.pool_configs.map(&:pool) }
       end
 
+      def each_connection_pool(&block) # :nodoc:
+        return enum_for(__method__) unless block
+
+        connection_name_to_pool_manager.each_value do |manager|
+          manager.each_pool(&block)
+        end
+      end
+
       def connection_pool_list(role = ActiveRecord::Base.current_role)
         connection_name_to_pool_manager.values.flat_map { |m| m.pool_configs(role).map(&:pool) }
       end
