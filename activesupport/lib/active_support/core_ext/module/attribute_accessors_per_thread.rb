@@ -60,7 +60,9 @@ class Module
             value = ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}]
 
             if value.nil? && !::ActiveSupport::IsolatedExecutionState.key?(@__thread_mattr_#{sym})
-              ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = #{sym}_default_value
+              default = #{sym}_default_value
+              default = default.dup unless default.frozen?
+              ::ActiveSupport::IsolatedExecutionState[@__thread_mattr_#{sym}] = default
             else
               value
             end

@@ -62,8 +62,16 @@ class ModuleAttributeAccessorPerThreadTest < ActiveSupport::TestCase
     end.join
   end
 
-  def test_default_value_is_the_same_object
-    default = Object.new
+  def test_default_value_is_duped
+    default = [1]
+    @class.thread_mattr_accessor :baz, default: default
+
+    assert_equal default, @class.baz
+    assert_not_same default, @class.baz
+  end
+
+  def test_default_value_is_the_same_object_when_frozen
+    default = [1].freeze
     @class.thread_mattr_accessor :baz, default: default
 
     assert_same default, @class.baz
