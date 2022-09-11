@@ -2,6 +2,7 @@
 
 require_relative "abstract_unit"
 require "active_support/testing/stream"
+require "active_support/logger"
 
 class Deprecatee
   def initialize
@@ -117,41 +118,48 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_deprecated(/foo=nil/) { @dtc.partially }
   end
 
-  def test_several_behaviors
-    @a, @b, @c = nil, nil, nil
+  test "behavior callbacks" do
+    deprecator = ActiveSupport::Deprecation.new("horizon", "gem")
 
-    ActiveSupport::Deprecation.behavior = [
-      lambda { |msg, callstack, horizon, gem| @a = msg },
-      lambda { |msg, callstack| @b = msg },
-      lambda { |*args| @c = args },
-    ]
-
-    @dtc.partially
-    assert_match(/foo=nil/, @a)
-    assert_match(/foo=nil/, @b)
-    assert_equal 4, @c.size
+    assert_callbacks_called_with(deprecator: deprecator, message: /foo bar/) do |callbacks|
+      deprecator.behavior = callbacks
+      deprecator.warn("foo bar")
+    end
   end
 
-  def test_raise_behavior
-    ActiveSupport::Deprecation.behavior = :raise
+  test "behavior callbacks with callable objects" do
+    deprecator = ActiveSupport::Deprecation.new("horizon", "gem")
+
+    assert_callbacks_called_with(deprecator: deprecator, message: /foo bar/) do |callbacks|
+      deprecator.behavior = callbacks.map do |callback|
+        callback = (lambda { |message, *| message } >> callback) if (0..1).cover?(callback.arity)
+        Object.new.tap { |object| object.define_singleton_method(:call, &callback) }
+      end
+      deprecator.warn("foo bar")
+    end
+  end
+
+  test ":raise behavior" do
+    deprecator = ActiveSupport::Deprecation.instance
+    deprecator.behavior = :raise
 
     message   = "Revise this deprecated stuff now!"
     callstack = caller_locations
 
     e = assert_raise ActiveSupport::DeprecationException do
-      ActiveSupport::Deprecation.behavior.first.call(message, callstack, "horizon", "gem")
+      deprecator.behavior.first.call(message, callstack, deprecator)
     end
     assert_equal message, e.message
     assert_equal callstack.map(&:to_s), e.backtrace.map(&:to_s)
   end
 
-  def test_default_stderr_behavior
-    ActiveSupport::Deprecation.behavior = :stderr
-    behavior = ActiveSupport::Deprecation.behavior.first
+  test ":stderr behavior" do
+    deprecator = ActiveSupport::Deprecation.instance
+    deprecator.behavior = :stderr
 
-    content = capture(:stderr) {
-      assert_nil behavior.call("Some error!", ["call stack!"], "horizon", "gem")
-    }
+    content = capture(:stderr) do
+      deprecator.behavior.first.call("Some error!", ["call stack!"], deprecator)
+    end
     assert_match(/Some error!/, content)
     assert_match(/call stack!/, content)
   end
@@ -167,35 +175,38 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match(/instance call stack!/, content)
   end
 
-  def test_default_silence_behavior
-    ActiveSupport::Deprecation.behavior = :silence
-    behavior = ActiveSupport::Deprecation.behavior.first
+  test ":log behavior" do
+    with_logger do
+      # ...
+    end
+  end
 
-    stderr_output = capture(:stderr) {
-      assert_nil behavior.call("Some error!", ["call stack!"], "horizon", "gem")
-    }
+  test ":silence behavior" do
+    deprecator = ActiveSupport::Deprecation.instance
+    deprecator.behavior = :silence
+
+    stderr_output = capture(:stderr) do
+      deprecator.behavior.first.call("Some error!", ["call stack!"], deprecator)
+    end
     assert_empty stderr_output
   end
 
-  def test_default_notify_behavior
-    ActiveSupport::Deprecation.behavior = :notify
-    behavior = ActiveSupport::Deprecation.behavior.first
+  test ":notify behavior" do
+    deprecator = ActiveSupport::Deprecation.new("horizon", "MyGem::Custom")
+    deprecator.behavior = :notify
 
-    begin
-      events = []
-      ActiveSupport::Notifications.subscribe("deprecation.my_gem_custom") { |*args|
-        events << args.extract_options!
-      }
+    payloads = []
+    subscriber = ->(name, start, finish, id, payload) { payloads << payload }
 
-      assert_nil behavior.call("Some error!", ["call stack!"], "horizon", "MyGem::Custom")
-      assert_equal 1, events.size
-      assert_equal "Some error!", events.first[:message]
-      assert_equal ["call stack!"], events.first[:callstack]
-      assert_equal "horizon", events.first[:deprecation_horizon]
-      assert_equal "MyGem::Custom", events.first[:gem_name]
-    ensure
-      ActiveSupport::Notifications.unsubscribe("deprecation.my_gem_custom")
+    ActiveSupport::Notifications.subscribed(subscriber, "deprecation.my_gem_custom") do
+      deprecator.behavior.first.call("Some error!", ["call stack!"], deprecator)
     end
+
+    assert_equal 1, payloads.size
+    assert_equal "Some error!", payloads.first[:message]
+    assert_equal ["call stack!"], payloads.first[:callstack]
+    assert_equal deprecator.deprecation_horizon, payloads.first[:deprecation_horizon]
+    assert_equal deprecator.gem_name, payloads.first[:gem_name]
   end
 
   def test_default_invalid_behavior
@@ -204,21 +215,6 @@ class DeprecationTest < ActiveSupport::TestCase
     end
 
     assert_equal ":invalid is not a valid deprecation behavior.", e.message
-  end
-
-  def test_custom_behavior
-    custom_behavior_class = Class.new do
-      def call(message, callstack, horizon, gem_name)
-        $stderr.puts message
-      end
-    end
-    ActiveSupport::Deprecation.behavior = custom_behavior_class.new
-
-    content = capture(:stderr) do
-      ActiveSupport::Deprecation.warn("foo")
-    end
-
-    assert_match(/foo/, content)
   end
 
   test "custom deprecator uses global deprecator `behavior` by default" do
@@ -605,6 +601,16 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_equal :all, deprecator.disallowed_warnings
   end
 
+  test "disallowed_behavior callbacks" do
+    deprecator = ActiveSupport::Deprecation.new("horizon", "gem")
+
+    assert_callbacks_called_with(deprecator: deprecator, message: /foo bar/) do |callbacks|
+      deprecator.disallowed_behavior = callbacks
+      deprecator.disallowed_warnings = ["foo bar"]
+      deprecator.warn("foo bar")
+    end
+  end
+
   def test_no_disallowed_behavior_with_no_disallowed_messages
     ActiveSupport::Deprecation.behavior = :silence
     ActiveSupport::Deprecation.disallowed_behavior = :raise
@@ -644,23 +650,6 @@ class DeprecationTest < ActiveSupport::TestCase
 
     assert_disallowed { @dtc.partially }
     assert_disallowed { @dtc.none }
-  end
-
-  def test_several_disallowed_behaviors
-    message1, message2, args1 = nil, nil, nil
-
-    ActiveSupport::Deprecation.disallowed_warnings = ["foo=nil"]
-    ActiveSupport::Deprecation.disallowed_behavior = [
-      lambda { |message, callstack, horizon, gem| message1 = message },
-      lambda { |message, callstack| message2 = message },
-      lambda { |*args| args1 = args },
-    ]
-
-    @dtc.partially
-
-    assert_match %r/foo=nil/, message1
-    assert_match %r/foo=nil/, message2
-    assert_equal 4, args1.size
   end
 
   test "custom deprecator uses global deprecator `disallowed_behavior` by default" do
@@ -853,5 +842,70 @@ class DeprecationTest < ActiveSupport::TestCase
         assert disallowed.any?(match), "No disallowed deprecations matched #{match}: #{disallowed.inspect}"
       end
       result
+    end
+
+    def assert_callbacks_called_with(matchers = {})
+      matchers[:message] ||= String
+      matchers[:callstack] ||= Array
+      matchers[:deprecator] ||= ActiveSupport::Deprecation
+      matchers[:deprecation_horizon] ||= matchers[:deprecator].deprecation_horizon
+      matchers[:gem_name] ||= matchers[:deprecator].gem_name
+
+      bindings = []
+
+      callbacks = [
+        lambda { |message, callstack, deprecator| bindings << binding },
+        proc   { |message, callstack, deprecator| bindings << binding },
+        lambda { |message, callstack, deprecation_horizon, gem_name| bindings << binding },
+        proc   { |message, callstack, deprecation_horizon, gem_name| bindings << binding },
+        lambda { |message, callstack| bindings << binding },
+        proc   { |message, callstack| bindings << binding },
+        proc   { |message| bindings << binding },
+        proc   { bindings << binding },
+
+        lambda do |*args|
+          message, callstack, deprecator = args
+          bindings << binding
+        end,
+
+        lambda do |message, *rest|
+          callstack, deprecator = rest
+          bindings << binding
+        end,
+
+        lambda do |message, callstack, *details|
+          deprecation_horizon, gem_name = details
+          bindings << binding
+        end,
+      ]
+
+      yield callbacks
+
+      assert_equal callbacks.size, bindings.size
+
+      bindings.each do |bound|
+        matchers.each do |name, matcher|
+          if bound.local_variable_defined?(name)
+            assert_operator matcher, :===, bound.local_variable_get(name),
+              "Unexpected #{name} in callback defined at #{bound.source_location.join(":")}"
+          end
+        end
+      end
+    end
+
+    module ::Rails; end
+
+    def with_logger
+      rails_class = ::Rails.singleton_class
+      rails_class.alias_method :__original_logger, :logger if rails_class.method_defined?(:logger)
+      rails_class.define_method(:logger) { }
+
+      yield
+    ensure
+      rails_class.undef_method :logger
+      if rails_class.method_defined?(:__original_logger)
+        rails_class.alias_method :logger, :__original_logger
+        rails_class.undef_method :__original_logger
+      end
     end
 end
