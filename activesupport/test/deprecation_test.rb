@@ -6,63 +6,46 @@ require "stringio"
 require "active_support/core_ext/enumerable"
 require "active_support/testing/stream"
 
-class Deprecatee
-  def initialize
-    @request = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(self, :request)
-    @_request = "there we go"
-  end
-  def request; @_request end
-  def old_request; @request end
-
-  def not() 2 end
-  def none() 1 end
-  def one(a) a end
-  def multi(a, b, c) [a, b, c] end
-  deprecate :none, :one, :multi
-
-  def a; end
-  def b; end
-  def c; end
-  def d; end
-  def e; end
-  deprecate :a, :b, c: :e, d: "you now need to do something extra for this one"
-
-  def f=(v); end
-  deprecate :f=
-
-  deprecate :g
-  def g(h) h end
-
-  module B
-    C = 1
-  end
-  A = ActiveSupport::Deprecation::DeprecatedConstantProxy.new("Deprecatee::A", "Deprecatee::B::C")
-
-  module New
-    class Descendant; end
-  end
-  Old = ActiveSupport::Deprecation::DeprecatedConstantProxy.new("Deprecatee::Old", "Deprecatee::New")
-end
-
-class DeprecateeWithAccessor
-  include ActiveSupport::Deprecation::DeprecatedConstantAccessor
-
-  module B
-    C = 1
-  end
-  deprecate_constant "A", "DeprecateeWithAccessor::B::C"
-
-  class NewException < StandardError; end
-  deprecate_constant "OldException", "DeprecateeWithAccessor::NewException"
-end
-
 class DeprecationTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::Stream
+
+  DEPRECATOR = ActiveSupport::Deprecation
+
+  class FooFoo
+    attr_accessor :fubar, :foo_bar
+
+    def zero(); 0; end
+    def one(a); a; end
+    def multi(a, b, c); [a, b, c]; end
+  end
+
+  class ::Deprecatee
+    module B
+      C = 1
+    end
+    A = ActiveSupport::Deprecation::DeprecatedConstantProxy.new("Deprecatee::A", "Deprecatee::B::C")
+
+    module New
+      class Descendant; end
+    end
+    Old = ActiveSupport::Deprecation::DeprecatedConstantProxy.new("Deprecatee::Old", "Deprecatee::New")
+  end
+
+  class ::DeprecateeWithAccessor
+    include ActiveSupport::Deprecation::DeprecatedConstantAccessor
+
+    module B
+      C = 1
+    end
+    deprecate_constant "A", "DeprecateeWithAccessor::B::C", deprecator: DEPRECATOR
+
+    class NewException < StandardError; end
+    deprecate_constant "OldException", "DeprecateeWithAccessor::NewException", deprecator: DEPRECATOR
+  end
 
   def setup
     @original_configuration = get_configuration(ActiveSupport::Deprecation)
     @deprecator = ActiveSupport::Deprecation
-    @dtc = Deprecatee.new
   end
 
   def teardown
@@ -82,34 +65,41 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecate_method_on_class
-    assert_deprecated(/none is deprecated/) do
-      assert_equal 1, @dtc.none
+    klass = Class.new(FooFoo)
+    klass.deprecate :zero, :one, :multi, deprecator: @deprecator
+
+    assert_deprecated(/zero is deprecated/, @deprecator) do
+      assert_equal 0, klass.new.zero
     end
 
-    assert_deprecated(/one is deprecated/) do
-      assert_equal 1, @dtc.one(1)
+    assert_deprecated(/one is deprecated/, @deprecator) do
+      assert_equal 1, klass.new.one(1)
     end
 
-    assert_deprecated(/multi is deprecated/) do
-      assert_equal [1, 2, 3], @dtc.multi(1, 2, 3)
+    assert_deprecated(/multi is deprecated/, @deprecator) do
+      assert_equal [1, 2, 3], klass.new.multi(1, 2, 3)
     end
   end
 
   def test_deprecate_method_doesnt_expand_positional_argument_hash
+    klass = Class.new(FooFoo)
+    klass.deprecate :one, :one!, deprecator: @deprecator
+    klass.alias_method :one!, :one
+
     hash = { k: 1 }
 
-    assert_deprecated(/one is deprecated/) do
-      assert_same hash, @dtc.one(hash)
+    assert_deprecated(/one is deprecated/, @deprecator) do
+      assert_same hash, klass.new.one(hash)
     end
 
-    assert_deprecated(/g is deprecated/) do
-      assert_same hash, @dtc.g(hash)
+    assert_deprecated(/one! is deprecated/, @deprecator) do
+      assert_same hash, klass.new.one!(hash)
     end
   end
 
   def test_deprecate_object
-    deprecated_object = ActiveSupport::Deprecation::DeprecatedObjectProxy.new(Object.new, ":bomb:")
-    assert_deprecated(/:bomb:/) { deprecated_object.to_s }
+    deprecated_object = ActiveSupport::Deprecation::DeprecatedObjectProxy.new(Object.new, ":bomb:", @deprecator)
+    assert_deprecated(/:bomb:/, @deprecator) { deprecated_object.to_s }
   end
 
   def test_nil_behavior_is_ignored
@@ -245,14 +235,24 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecated_instance_variable_proxy
-    assert_not_deprecated { @dtc.request.size }
+    instance = FooFoo.new
+    instance.fubar = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(instance, :foo_bar, "@fubar", @deprecator)
+    instance.foo_bar = "foo bar!"
 
-    assert_deprecated("@request.size") { assert_equal @dtc.request.size, @dtc.old_request.size }
-    assert_deprecated("@request.to_s") { assert_equal @dtc.request.to_s, @dtc.old_request.to_s }
+    fubar_size = assert_deprecated("@fubar.size", @deprecator) { instance.fubar.size }
+    assert_equal instance.foo_bar.size, fubar_size
+
+    fubar_s = assert_deprecated("@fubar.to_s", @deprecator) { instance.fubar.to_s }
+    assert_equal instance.foo_bar.to_s, fubar_s
   end
 
   def test_deprecated_instance_variable_proxy_shouldnt_warn_on_inspect
-    assert_not_deprecated { assert_equal @dtc.request.inspect, @dtc.old_request.inspect }
+    instance = FooFoo.new
+    instance.fubar = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(instance, :foo_bar, "@fubar", @deprecator)
+    instance.foo_bar = "foo bar!"
+
+    fubar_inspected = assert_not_deprecated(@deprecator) { instance.fubar.inspect }
+    assert_equal instance.foo_bar.inspect, fubar_inspected
   end
 
   def test_deprecated_constant_proxy
@@ -274,16 +274,23 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecated_constant_accessor
-    assert_not_deprecated { DeprecateeWithAccessor::B::C }
-    assert_deprecated("DeprecateeWithAccessor::A") { assert_equal DeprecateeWithAccessor::B::C, DeprecateeWithAccessor::A }
+    assert_not_deprecated(DEPRECATOR) do
+      DeprecateeWithAccessor::B::C
+    end
+
+    assert_deprecated("DeprecateeWithAccessor::A", DEPRECATOR) do
+      assert_equal DeprecateeWithAccessor::B::C, DeprecateeWithAccessor::A
+    end
   end
 
   def test_deprecated_constant_accessor_exception
-    ActiveSupport::Deprecation.behavior = :silence
+    old_exception_type = assert_deprecated(/./, DEPRECATOR) { DeprecateeWithAccessor::OldException }
 
-    raise DeprecateeWithAccessor::NewException.new("Test")
-  rescue DeprecateeWithAccessor::OldException => e
-    assert_kind_of DeprecateeWithAccessor::NewException, e
+    exception = assert_raises(old_exception_type) do
+      raise DeprecateeWithAccessor::NewException.new("Test")
+    end
+
+    assert_kind_of DeprecateeWithAccessor::NewException, exception
   end
 
   def test_assert_deprecated_raises_when_method_not_deprecated
@@ -359,17 +366,25 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecation_without_explanation
-    assert_deprecated { @dtc.a }
-    assert_deprecated { @dtc.b }
-    assert_deprecated { @dtc.f = :foo }
+    klass = Class.new(FooFoo)
+    klass.deprecate :fubar, :fubar=, deprecator: @deprecator
+
+    assert_deprecated(/./, @deprecator) { klass.new.fubar }
+    assert_deprecated(/./, @deprecator) { klass.new.fubar = :foo }
   end
 
   def test_deprecation_with_alternate_method
-    assert_deprecated(/use e instead/) { @dtc.c }
+    klass = Class.new(FooFoo)
+    klass.deprecate fubar: :foo_bar, deprecator: @deprecator
+
+    assert_deprecated(/use foo_bar instead/, @deprecator) { klass.new.fubar }
   end
 
   def test_deprecation_with_explicit_message
-    assert_deprecated(/you now need to do something extra for this one/) { @dtc.d }
+    klass = Class.new(FooFoo)
+    klass.deprecate fubar: "this is the old way", deprecator: @deprecator
+
+    assert_deprecated(/this is the old way/, @deprecator) { klass.new.fubar }
   end
 
   def test_deprecation_in_other_object
@@ -439,36 +454,6 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match "foo", deprecator.messages.last
   end
 
-  def test_deprecated_instance_variable_with_instance_deprecator
-    deprecator = deprecator_with_messages
-
-    klass = Class.new() do
-      def initialize(deprecator)
-        @request = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(self, :request, :@request, deprecator)
-        @_request = :a_request
-      end
-      def request; @_request end
-      def old_request; @request end
-    end
-
-    assert_difference("deprecator.messages.size") { klass.new(deprecator).old_request.to_s }
-  end
-
-  def test_deprecated_instance_variable_with_given_deprecator
-    deprecator = deprecator_with_messages
-
-    klass = Class.new do
-      define_method(:initialize) do
-        @request = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(self, :request, :@request, deprecator)
-        @_request = :a_request
-      end
-      def request; @_request end
-      def old_request; @request end
-    end
-
-    assert_difference("deprecator.messages.size") { klass.new.old_request.to_s }
-  end
-
   def test_delegate_deprecator_instance
     klass = Class.new do
       attr_reader :last_message
@@ -514,7 +499,13 @@ class DeprecationTest < ActiveSupport::TestCase
   end
 
   def test_deprecate_work_before_define_method
-    assert_deprecated(/g is deprecated/) { @dtc.g(1) }
+    klass = Class.new(FooFoo)
+    klass.deprecate :multi!, deprecator: @deprecator
+    klass.alias_method :multi!, :multi
+
+    assert_deprecated(/multi! is deprecated/, @deprecator) do
+      assert_equal [1, 2, 3], klass.new.multi!(1, 2, 3)
+    end
   end
 
   test "warn with empty callstack" do
