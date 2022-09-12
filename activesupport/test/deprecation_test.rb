@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "abstract_unit"
+require "logger"
+require "stringio"
 require "active_support/core_ext/enumerable"
 require "active_support/testing/stream"
 
@@ -130,7 +132,7 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_equal 4, @c.size
   end
 
-  def test_raise_behavior
+  test ":raise behavior" do
     @deprecator.behavior = :raise
 
     message   = "Revise this deprecated stuff now!"
@@ -143,7 +145,7 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_equal callstack.map(&:to_s), e.backtrace.map(&:to_s)
   end
 
-  def test_default_stderr_behavior
+  test ":stderr behavior" do
     @deprecator.behavior = :stderr
     behavior = @deprecator.behavior.first
 
@@ -154,7 +156,7 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match(/call stack!/, content)
   end
 
-  def test_default_stderr_behavior_with_warn_method
+  test ":stderr behavior with #warn" do
     @deprecator.behavior = :stderr
 
     content = capture(:stderr) {
@@ -165,7 +167,30 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match(/instance call stack!/, content)
   end
 
-  def test_default_silence_behavior
+  test ":log behavior" do
+    @deprecator.behavior = :log
+    output = StringIO.new
+
+    with_rails_logger(Logger.new(output)) do
+      @deprecator.behavior.first.call("fubar", ["call stack"], "horizon", "gem")
+    end
+
+    assert_match "fubar", output.string
+  end
+
+  test ":log behavior without Rails.logger" do
+    @deprecator.behavior = :log
+
+    _out, err = capture_io do
+      with_rails_logger(nil) do
+        @deprecator.behavior.first.call("fubar", ["call stack"], "horizon", "gem")
+      end
+    end
+
+    assert_match "fubar", err
+  end
+
+  test ":silence behavior" do
     @deprecator.behavior = :silence
     behavior = @deprecator.behavior.first
 
@@ -175,7 +200,7 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_empty stderr_output
   end
 
-  def test_default_notify_behavior
+  test ":notify behavior" do
     @deprecator.behavior = :notify
     behavior = @deprecator.behavior.first
 
@@ -724,6 +749,26 @@ class DeprecationTest < ActiveSupport::TestCase
     def set_configuration(deprecator, configuration)
       configuration.each do |attribute, value|
         deprecator.public_send("#{attribute}=", value)
+      end
+    end
+
+    module ::Rails; end
+
+    def with_rails_logger(logger)
+      ::Rails.singleton_class.class_eval do
+        alias_method :__original_logger, :logger if method_defined?(:logger)
+        define_method(:logger) { logger }
+      end
+
+      yield logger
+    ensure
+      ::Rails.singleton_class.class_eval do
+        if method_defined?(:__original_logger)
+          alias_method :logger, :__original_logger
+          undef_method :__original_logger
+        else
+          undef_method :logger
+        end
       end
     end
 
