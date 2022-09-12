@@ -584,6 +584,14 @@ class DeprecationTest < ActiveSupport::TestCase
     assert_match(/fubar/, @c)
   end
 
+  test "disallowed_warnings with the default warning message" do
+    @deprecator.disallowed_warnings = ["fubar"]
+    assert_deprecated(/.*/, @deprecator) { @deprecator.warn }
+
+    @deprecator.disallowed_warnings = [/.*/]
+    assert_disallowed(/.*/, @deprecator) { @deprecator.warn }
+  end
+
   def test_allow
     @deprecator.disallowed_warnings = :all
 
@@ -675,6 +683,18 @@ class DeprecationTest < ActiveSupport::TestCase
 
     @deprecator.allow("fubar", if: -> { false }) do
       assert_disallowed(/fubar/, @deprecator) { @deprecator.warn("fubar") }
+    end
+  end
+
+  test "allow with the default warning message" do
+    @deprecator.disallowed_warnings = [/.*/]
+
+    @deprecator.allow(["fubar"]) do
+      assert_disallowed(/.*/, @deprecator) { @deprecator.warn }
+    end
+
+    @deprecator.allow([/.*/]) do
+      assert_deprecated(/.*/, @deprecator) { @deprecator.warn }
     end
   end
 
