@@ -15,6 +15,18 @@ module ActionMailer
       ActiveSupport.on_load(:action_mailer) { self.logger ||= Rails.logger }
     end
 
+    initializer "action_mailer.action_controller_renderer" do
+      ActiveSupport.on_load(:action_mailer) do
+        around_action do |mailer, action|
+          if defined?(ActionController)
+            ActionController.with_renderer(mailer, &action)
+          else
+            action.call
+          end
+        end
+      end
+    end
+
     initializer "action_mailer.set_configs" do |app|
       paths   = app.config.paths
       options = app.config.action_mailer

@@ -1,6 +1,26 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/module/attribute_accessors_per_thread"
+
 module ActionController
+  thread_mattr_accessor :thread_renderer, instance_accessor: false
+
+  class << self
+    # attr_accessor :global_renderer
+
+    def renderer
+      thread_renderer || (@global_renderer ||= ActionController::Base.renderer)
+    end
+
+    def with_renderer(renderer) # :nodoc:
+      previous_renderer = self.thread_renderer
+      self.thread_renderer = renderer
+      yield
+    ensure
+      self.thread_renderer = previous_renderer
+    end
+  end
+
   # ActionController::Renderer allows you to render arbitrary templates
   # without requirement of being in controller actions.
   #

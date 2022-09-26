@@ -58,16 +58,6 @@ module ActionText
       end
     end
 
-    initializer "action_text.renderer" do
-      %i[action_controller_base action_mailer].each do |base|
-        ActiveSupport.on_load(base) do
-          around_action do |controller, action|
-            ActionText::Content.with_renderer(controller, &action)
-          end
-        end
-      end
-    end
-
     initializer "action_text.system_test_helper" do
       ActiveSupport.on_load(:action_dispatch_system_test_case) do
         require "action_text/system_test_helper"

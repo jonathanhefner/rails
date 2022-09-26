@@ -241,6 +241,18 @@ module ActionController
     end
     setup_renderer!
 
+    # ActionController.global_renderer = self.renderer
+
+    def self.inherited(subclass)
+      if subclass.name == "ApplicationController"
+        ActionController.global_renderer = subclass.renderer
+      end
+    end
+
+    around_action do |controller, action|
+      ActionController.with_renderer(controller, &action)
+    end
+
     # Define some internal variables that should not be propagated to the view.
     PROTECTED_IVARS = AbstractController::Rendering::DEFAULT_PROTECTED_INSTANCE_VARIABLES + %i(
       @_params @_response @_request @_config @_url_options @_action_has_layout @_view_context_class
