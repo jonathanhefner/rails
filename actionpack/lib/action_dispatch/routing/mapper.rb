@@ -1584,6 +1584,14 @@ module ActionDispatch
           !parent_resource.singleton? && @scope[:shallow]
         end
 
+        # Loads another route file located inside the +config/routes+ directory
+        # or any subdirectory, that has the same name as the argument given
+        # (+admin.rb+ in the example).
+        #
+        # In that file, you can use the normal routing DSL, but *do not* surround it
+        # with the +Rails.application.routes.draw+ block.
+        #
+        #   draw :admin
         def draw(name)
           path = @draw_paths.find do |_path|
             File.exist? "#{_path}/#{name}.rb"
