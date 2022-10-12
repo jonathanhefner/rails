@@ -26,6 +26,8 @@ module ActiveModel
       end
     end
 
+    UNDEFINED = Object.new.freeze
+
     attr_reader :name, :value_before_type_cast, :type
 
     # This method should not be called directly.
@@ -36,11 +38,18 @@ module ActiveModel
       @type = type
       @original_attribute = original_attribute
       @value = value unless value.nil?
+      @changed_in_place = false
+      @value_for_database = UNDEFINED
     end
 
     def value
       # `defined?` is cheaper than `||=` when we get back falsy values
       @value = type_cast(value_before_type_cast) unless defined?(@value)
+
+      # The value may change in place after being read.
+      @changed_in_place = UNDEFINED
+      @value_for_database = UNDEFINED
+
       @value
     end
 
@@ -48,12 +57,18 @@ module ActiveModel
       if assigned?
         original_attribute.original_value
       else
-        type_cast(value_before_type_cast)
+        # puts "???? original_value #{name.inspect}"
+        # puts caller
+        # type_cast(value_before_type_cast)
+        ##### BENCH model.changed? after assignment [NOTE same as has_changes_to_save?]
+        @original_value = type_cast(value_before_type_cast) unless defined?(@original_value)
+        @original_value
       end
     end
 
     def value_for_database
-      type.serialize(value)
+      @value_for_database = _value_for_database if UNDEFINED.equal?(@value_for_database)
+      @value_for_database
     end
 
     def serializable?(&block)
@@ -65,7 +80,8 @@ module ActiveModel
     end
 
     def changed_in_place?
-      has_been_read? && type.changed_in_place?(original_value_for_database, value)
+      @changed_in_place = type.changed_in_place?(original_value_for_database, value) if UNDEFINED.equal?(@changed_in_place)
+      @changed_in_place
     end
 
     def forgetting_assignment
@@ -159,14 +175,28 @@ module ActiveModel
         assigned? && type.changed?(original_value, value, value_before_type_cast)
       end
 
+      def _value_for_database
+        type.serialize(value)
+      end
+
       def _original_value_for_database
         type.serialize(original_value)
       end
 
       class FromDatabase < Attribute # :nodoc:
+        # def initialize(*)
+        #   super
+        #   @value_for_database = value_before_type_cast
+        # end
+
         def type_cast(value)
           type.deserialize(value)
         end
+
+        # def value_for_database
+        #   #### BENCH
+        #   changed_in_place? ? super : value_before_type_cast
+        # end
 
         private
           def _original_value_for_database
@@ -179,13 +209,14 @@ module ActiveModel
           type.cast(value)
         end
 
-        def value_for_database
-          Type::SerializeCastValue.serialize(type, value)
-        end
-
         def came_from_user?
           !type.value_constructed_by_mass_assignment?(value_before_type_cast)
         end
+
+        private
+          def _value_for_database
+            Type::SerializeCastValue.serialize(type, value)
+          end
       end
 
       class WithCastValue < Attribute # :nodoc:

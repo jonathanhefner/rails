@@ -9,10 +9,6 @@ module ActiveRecord
         value
       end
 
-      def value_for_database
-        @value_for_database ||= super
-      end
-
       def with_cast_value(value)
         QueryAttribute.new(name, value, type)
       end
