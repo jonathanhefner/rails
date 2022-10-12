@@ -74,10 +74,10 @@ module ActiveModel
       assert_equal "raw value", raw_value
     end
 
-    test "from_database + value_for_database uses original value from the database" do
+    test "from_database + value_for_database type casts to and from database" do
       attribute = Attribute.from_database(nil, "whatever", @type)
 
-      assert_equal "whatever", attribute.value_for_database
+      assert_equal "serialize(deserialize(whatever))", attribute.value_for_database
     end
 
     test "from_user + value_for_database type casts from the user to the database" do

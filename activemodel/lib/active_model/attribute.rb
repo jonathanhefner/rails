@@ -183,11 +183,6 @@ module ActiveModel
       end
 
       class FromDatabase < Attribute # :nodoc:
-        def initialize(*)
-          super
-          @value_for_database = value_before_type_cast
-        end
-
         def type_cast(value)
           type.deserialize(value)
         end
