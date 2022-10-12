@@ -26,8 +26,6 @@ module ActiveModel
       end
     end
 
-    UNDEFINED = Object.new.freeze
-
     attr_reader :name, :value_before_type_cast, :type
 
     # This method should not be called directly.
@@ -38,8 +36,7 @@ module ActiveModel
       @type = type
       @original_attribute = original_attribute
       @value = value unless value.nil?
-      @changed_in_place = false
-      @value_for_database = UNDEFINED
+      # @changed_in_place = false
     end
 
     def value
@@ -47,8 +44,7 @@ module ActiveModel
       @value = type_cast(value_before_type_cast) unless defined?(@value)
 
       # The value may change in place after being read.
-      @changed_in_place = UNDEFINED
-      @value_for_database = UNDEFINED
+      # @changed_in_place = nil
 
       @value
     end
@@ -67,7 +63,9 @@ module ActiveModel
     end
 
     def value_for_database
-      @value_for_database = _value_for_database if UNDEFINED.equal?(@value_for_database)
+      if !defined?(@value_for_database) || type.changed_in_place?(@value_for_database, value)
+        @value_for_database = _value_for_database
+      end
       @value_for_database
     end
 
@@ -80,8 +78,9 @@ module ActiveModel
     end
 
     def changed_in_place?
-      @changed_in_place = type.changed_in_place?(original_value_for_database, value) if UNDEFINED.equal?(@changed_in_place)
-      @changed_in_place
+      # @changed_in_place = type.changed_in_place?(original_value_for_database, value) if @changed_in_place.nil?
+      # @changed_in_place
+      has_been_read? && type.changed_in_place?(original_value_for_database, value)
     end
 
     def forgetting_assignment
@@ -184,19 +183,14 @@ module ActiveModel
       end
 
       class FromDatabase < Attribute # :nodoc:
-        # def initialize(*)
-        #   super
-        #   @value_for_database = value_before_type_cast
-        # end
+        def initialize(*)
+          super
+          @value_for_database = value_before_type_cast
+        end
 
         def type_cast(value)
           type.deserialize(value)
         end
-
-        # def value_for_database
-        #   #### BENCH
-        #   changed_in_place? ? super : value_before_type_cast
-        # end
 
         private
           def _original_value_for_database

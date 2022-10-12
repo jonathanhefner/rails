@@ -5,16 +5,20 @@ require "cases/helper"
 module ActiveModel
   class AttributeTest < ActiveModel::TestCase
     class InscribingType
+      def changed_in_place?(raw_old_value, new_value)
+        false
+      end
+
       def cast(value)
-        "cast(#{value})"
+        "cast(#{value})".freeze
       end
 
       def serialize(value)
-        "serialize(#{value})"
+        "serialize(#{value})".freeze
       end
 
       def deserialize(value)
-        "deserialize(#{value})"
+        "deserialize(#{value})".freeze
       end
     end
 
@@ -70,10 +74,10 @@ module ActiveModel
       assert_equal "raw value", raw_value
     end
 
-    test "from_database + value_for_database type casts to and from database" do
+    test "from_database + value_for_database uses original value from the database" do
       attribute = Attribute.from_database(nil, "whatever", @type)
 
-      assert_equal "serialize(deserialize(whatever))", attribute.value_for_database
+      assert_equal "whatever", attribute.value_for_database
     end
 
     test "from_user + value_for_database type casts from the user to the database" do
