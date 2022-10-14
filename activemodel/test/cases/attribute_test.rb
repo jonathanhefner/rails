@@ -248,6 +248,21 @@ module ActiveModel
       assert_not_predicate forgotten, :changed?
     end
 
+    test "forgetting_assignment does not call serialize when the attribute has already been serialized" do
+      count = 0
+      @type.define_singleton_method(:serialize) do |value|
+        count += 1
+        nil
+      end
+
+      attribute = Attribute.from_user(nil, "whatever", @type)
+
+      attribute.value_for_database
+      assert_equal 1, count
+      attribute.forgetting_assignment
+      assert_equal 1, count
+    end
+
     test "with_value_from_user validates the value" do
       type = Type::Value.new
       type.define_singleton_method(:assert_valid_value) do |value|
