@@ -249,6 +249,11 @@ module ActiveModel
         attribute_aliases[name.to_s]
       end
 
+      def resolve_attribute_name(name) # :nodoc:
+        name = super
+        attribute_aliases[name] || name
+      end
+
       # Declares the attributes that should be prefixed and suffixed by
       # <tt>ActiveModel::AttributeMethods</tt>.
       #
@@ -358,10 +363,6 @@ module ActiveModel
       end
 
       private
-        def resolve_attribute_name(name)
-          attribute_aliases.fetch(super, &:itself)
-        end
-
         def generated_attribute_methods
           @generated_attribute_methods ||= Module.new.tap { |mod| include mod }
         end

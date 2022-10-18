@@ -206,8 +206,7 @@ module ActiveRecord
       # will be called from ActiveModel::Dirty. See the documentation for those
       # methods in ActiveModel::Type::Value for more details.
       def attribute(name, cast_type = nil, default: NO_DEFAULT_PROVIDED, **options)
-        name = name.to_s
-        name = attribute_aliases[name] || name
+        name = resolve_attribute_name(name)
 
         reload_schema_from_cache
 
@@ -266,6 +265,10 @@ module ActiveRecord
           cast_type = cast_type[type_for_attribute(name)] if Proc === cast_type
           define_attribute(name, cast_type, default: default)
         end
+      end
+
+      def resolve_attribute_name(name) # :nodoc:
+        name.to_s
       end
 
       private

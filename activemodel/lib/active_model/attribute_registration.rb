@@ -29,6 +29,10 @@ module ActiveModel
         end
       end
 
+      def resolve_attribute_name(name) # :nodoc:
+        name.to_s
+      end
+
       private
         class PendingAttribute # :nodoc:
           attr_accessor :type, :default
@@ -63,10 +67,6 @@ module ActiveModel
           @default_attributes = nil
           @attribute_types = nil
           subclasses.each { |subclass| subclass.send(__method__) }
-        end
-
-        def resolve_attribute_name(name)
-          name.to_s
         end
 
         def resolve_type_name(name, **options)

@@ -833,8 +833,7 @@ module ActiveRecord
       _raise_readonly_record_error if readonly?
 
       attributes = attributes.transform_keys do |key|
-        name = key.to_s
-        name = self.class.attribute_aliases[name] || name
+        name = self.class.resolve_attribute_name(key)
         verify_readonly_attribute(name) || name
       end
 
@@ -1021,8 +1020,7 @@ module ActiveRecord
 
       attribute_names = timestamp_attributes_for_update_in_model
       attribute_names = (attribute_names | names).map! do |name|
-        name = name.to_s
-        name = self.class.attribute_aliases[name] || name
+        name = self.class.resolve_attribute_name(name)
         verify_readonly_attribute(name)
         name
       end

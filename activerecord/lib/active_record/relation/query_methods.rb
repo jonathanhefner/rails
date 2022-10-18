@@ -1392,8 +1392,7 @@ module ActiveRecord
           parts = [klass.sanitize_sql(rest.empty? ? opts : [opts, *rest])]
         when Hash
           opts = opts.transform_keys do |key|
-            key = key.to_s
-            klass.attribute_aliases[key] || key
+            klass.resolve_attribute_name(key)
           end
           references = PredicateBuilder.references(opts)
           self.references_values |= references unless references.empty?

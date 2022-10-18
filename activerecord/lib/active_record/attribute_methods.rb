@@ -179,9 +179,7 @@ module ActiveRecord
       #   Person.has_attribute?(:age)       # => true
       #   Person.has_attribute?(:nothing)   # => false
       def has_attribute?(attr_name)
-        attr_name = attr_name.to_s
-        attr_name = attribute_aliases[attr_name] || attr_name
-        attribute_types.key?(attr_name)
+        attribute_types.key?(resolve_attribute_name(attr_name))
       end
 
       def _has_attribute?(attr_name) # :nodoc:
@@ -233,9 +231,7 @@ module ActiveRecord
     #   person.has_attribute?('age')     # => true
     #   person.has_attribute?(:nothing)  # => false
     def has_attribute?(attr_name)
-      attr_name = attr_name.to_s
-      attr_name = self.class.attribute_aliases[attr_name] || attr_name
-      @attributes.key?(attr_name)
+      @attributes.key?(self.class.resolve_attribute_name(attr_name))
     end
 
     def _has_attribute?(attr_name) # :nodoc:
@@ -282,9 +278,7 @@ module ActiveRecord
     #   person.attribute_for_inspect(:tag_ids)
     #   # => "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]"
     def attribute_for_inspect(attr_name)
-      attr_name = attr_name.to_s
-      attr_name = self.class.attribute_aliases[attr_name] || attr_name
-      value = _read_attribute(attr_name)
+      value = _read_attribute(self.class.resolve_attribute_name(attr_name))
       format_for_inspect(attr_name, value)
     end
 
@@ -304,9 +298,7 @@ module ActiveRecord
     #   task.attribute_present?(:title)   # => true
     #   task.attribute_present?(:is_done) # => true
     def attribute_present?(attr_name)
-      attr_name = attr_name.to_s
-      attr_name = self.class.attribute_aliases[attr_name] || attr_name
-      value = _read_attribute(attr_name)
+      value = _read_attribute(self.class.resolve_attribute_name(attr_name))
       !value.nil? && !(value.respond_to?(:empty?) && value.empty?)
     end
 

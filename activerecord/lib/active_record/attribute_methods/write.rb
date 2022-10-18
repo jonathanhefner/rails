@@ -29,9 +29,7 @@ module ActiveRecord
       # specified +value+. Empty strings for Integer and Float columns are
       # turned into +nil+.
       def write_attribute(attr_name, value)
-        name = attr_name.to_s
-        name = self.class.attribute_aliases[name] || name
-
+        name = self.class.resolve_attribute_name(attr_name)
         name = @primary_key if name == "id" && @primary_key
         @attributes.write_from_user(name, value)
       end

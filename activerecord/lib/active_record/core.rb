@@ -272,8 +272,7 @@ module ActiveRecord
         return super unless Hash === hash
 
         hash = hash.each_with_object({}) do |(key, value), h|
-          key = key.to_s
-          key = attribute_aliases[key] || key
+          key = resolve_attribute_name(key)
 
           return super if reflect_on_aggregation(key)
 

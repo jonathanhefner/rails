@@ -447,8 +447,7 @@ module ActiveRecord
       # +attr_name+ The name of the attribute to retrieve the type for. Must be
       # a string or a symbol.
       def type_for_attribute(attr_name, &block)
-        attr_name = attr_name.to_s
-        attr_name = attribute_aliases[attr_name] || attr_name
+        attr_name = resolve_attribute_name(attr_name)
 
         if block
           attribute_types.fetch(attr_name, &block)
