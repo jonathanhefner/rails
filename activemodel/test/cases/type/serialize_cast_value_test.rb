@@ -12,7 +12,7 @@ module ActiveModel
       end
 
       class IncludesModule < DoesNotIncludeModule
-        include SerializeCastValue
+        include Helpers::SerializeCastValue
 
         def serialize_cast_value(value)
           "serialize_cast_value(#{super})"
@@ -20,7 +20,7 @@ module ActiveModel
       end
 
       test "provides a default #serialize_cast_value implementation" do
-        type = Class.new(DoesNotIncludeModule) { include SerializeCastValue }
+        type = Class.new(DoesNotIncludeModule) { include Helpers::SerializeCastValue }
         assert_equal "foo", type.new.serialize_cast_value("foo")
       end
 
@@ -65,18 +65,18 @@ module ActiveModel
       end
 
       test "uses #serialize_cast_value when a delegate class prepends SerializeCastValue" do
-        delegate_class = DelegateClass(IncludesModule) { prepend SerializeCastValue }
+        delegate_class = DelegateClass(IncludesModule) { prepend Helpers::SerializeCastValue }
         assert_serializes_using :serialize_cast_value, delegate_class.new(IncludesModule.new)
       end
 
       test "uses #serialize_cast_value when a delegate class subclass includes SerializeCastValue" do
-        delegate_subclass = Class.new(DelegateClass(IncludesModule)) { include SerializeCastValue }
+        delegate_subclass = Class.new(DelegateClass(IncludesModule)) { include Helpers::SerializeCastValue }
         assert_serializes_using :serialize_cast_value, delegate_subclass.new(IncludesModule.new)
       end
 
       private
         def assert_serializes_using(method_name, type)
-          assert_equal "#{method_name}(foo)", SerializeCastValue.serialize(type, "foo")
+          assert_equal "#{method_name}(foo)", Helpers.serialize_cast_value(type, "foo")
         end
     end
   end

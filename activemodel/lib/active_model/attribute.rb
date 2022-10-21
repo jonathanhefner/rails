@@ -205,7 +205,7 @@ module ActiveModel
 
         private
           def _value_for_database
-            Type::SerializeCastValue.serialize(type, value)
+            Type::Helpers.serialize_cast_value(type, value)
           end
       end
 

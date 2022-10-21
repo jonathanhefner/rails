@@ -88,7 +88,7 @@ module ActiveModel
 
     test "from_user + value_for_database uses serialize_cast_value when possible" do
       @type = Class.new(InscribingType) do
-        include Type::SerializeCastValue
+        include Type::Helpers::SerializeCastValue
 
         def serialize_cast_value(value)
           "serialize_cast_value(#{value})"
