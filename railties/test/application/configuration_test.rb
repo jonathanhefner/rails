@@ -2721,10 +2721,7 @@ module ApplicationTests
 
     test "use_big_decimal_serializer is enabled in new apps" do
       app "development"
-
-      # When loaded, ActiveJob::Base triggers the :active_job load hooks, which is where config is attached.
-      # Referencing the constant auto-loads it.
-      ActiveJob::Base
+      load_active_job
 
       assert ActiveJob.use_big_decimal_serializer, "use_big_decimal_serializer should be enabled in new apps"
     end
@@ -2733,10 +2730,7 @@ module ApplicationTests
       remove_from_config '.*config\.load_defaults.*\n'
       add_to_config 'config.load_defaults "7.0"'
       app "development"
-
-      # When loaded, ActiveJob::Base triggers the :active_job load hooks, which is where config is attached.
-      # Referencing the constant auto-loads it.
-      ActiveJob::Base
+      load_active_job
 
       assert_not ActiveJob.use_big_decimal_serializer, "use_big_decimal_serializer should be disabled in defaults prior to 7.1"
     end
@@ -2748,10 +2742,7 @@ module ApplicationTests
         Rails.application.config.active_job.use_big_decimal_serializer = true
       RUBY
       app "development"
-
-      # When loaded, ActiveJob::Base triggers the :active_job load hooks, which is where config is attached.
-      # Referencing the constant auto-loads it.
-      ActiveJob::Base
+      load_active_job
 
       assert ActiveJob.use_big_decimal_serializer, "use_big_decimal_serializer should be enabled if set in config"
     end
@@ -4213,6 +4204,11 @@ module ApplicationTests
         add_to_config <<~RUBY
           config.my_custom_config = config_for(#{config_source})
         RUBY
+      end
+
+      # Triggers :active_job load hooks.
+      def load_active_job
+        ActiveJob::Base
       end
   end
 end
