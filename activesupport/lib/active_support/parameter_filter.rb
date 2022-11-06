@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "active_support/core_ext/object/duplicable"
+require "active_support/core_ext/array/extract"
 
 module ActiveSupport
   # +ParameterFilter+ allows you to specify keys for sensitive data from
@@ -63,75 +64,63 @@ module ActiveSupport
       def self.compile(filters, mask:)
         return lambda { |params| params.dup } if filters.empty?
 
-        strings, regexps, blocks, deep_regexps, deep_strings = [], [], [], nil, nil
+        blocks, patterns = nil, []
 
         filters.each do |item|
           case item
           when Proc
-            blocks << item
+            (blocks ||= []) << item
           when Regexp
-            if item.to_s.include?("\\.")
-              (deep_regexps ||= []) << item
-            else
-              regexps << item
-            end
+            patterns << item
           else
-            s = Regexp.escape(item.to_s)
-            if s.include?("\\.")
-              (deep_strings ||= []) << s
-            else
-              strings << s
-            end
+            patterns << "(?i-mx:#{Regexp.escape item.to_s})"
           end
         end
 
-        regexps << Regexp.new(strings.join("|"), true) unless strings.empty?
-        (deep_regexps ||= []) << Regexp.new(deep_strings.join("|"), true) if deep_strings&.any?
+        deep_patterns = patterns.extract! { |pattern| pattern.to_s.include?("\\.") }
 
-        new regexps, deep_regexps, blocks, mask: mask
+        regexp = Regexp.new(patterns.join("|")) if patterns.any?
+        deep_regexp = Regexp.new(deep_patterns.join("|")) if deep_patterns.any?
+
+        new regexp, deep_regexp, blocks, mask: mask
       end
 
-      attr_reader :regexps, :deep_regexps, :blocks
-
-      def initialize(regexps, deep_regexps, blocks, mask:)
-        @regexps = regexps
-        @deep_regexps = deep_regexps&.any? ? deep_regexps : nil
+      def initialize(regexp, deep_regexp, blocks, mask:)
+        @regexp = regexp
+        @deep_regexp = deep_regexp
         @blocks = blocks
         @mask = mask
       end
 
-      def call(params, parents = [], original_params = params)
+      def call(params, full_parent_key = nil, original_params = params)
         filtered_params = params.class.new
 
         params.each do |key, value|
-          filtered_params[key] = value_for_key(key, value, parents, original_params)
+          filtered_params[key] = value_for_key(key, value, full_parent_key, original_params)
         end
 
         filtered_params
       end
 
-      def value_for_key(key, value, parents = [], original_params = nil)
-        parents.push(key) if deep_regexps
-        if regexps.any? { |r| r.match?(key.to_s) }
-          value = @mask
-        elsif deep_regexps && (joined = parents.join(".")) && deep_regexps.any? { |r| r.match?(joined) }
-          value = @mask
-        elsif value.is_a?(Hash)
-          value = call(value, parents, original_params)
-        elsif value.is_a?(Array)
-          # If we don't pop the current parent it will be duplicated as we
-          # process each array value.
-          parents.pop if deep_regexps
-          value = value.map { |v| value_for_key(key, v, parents, original_params) }
-          # Restore the parent stack after processing the array.
-          parents.push(key) if deep_regexps
-        elsif blocks.any?
-          key = key.dup if key.duplicable?
-          value = value.dup if value.duplicable?
-          blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
+      def value_for_key(key, value, full_parent_key = nil, original_params = nil)
+        if @deep_regexp
+          full_key = full_parent_key ? "#{full_parent_key}.#{key}" : key.to_s
         end
-        parents.pop if deep_regexps
-        value
+
+        case
+        when @regexp&.match?(key.to_s) || @deep_regexp&.match?(full_key)
+          @mask
+        when value.is_a?(Hash)
+          call(value, full_key, original_params)
+        when value.is_a?(Array)
+          value.map { |v| value_for_key(key, v, full_parent_key, original_params) }
+        when @blocks
+          value = value.dup if value.duplicable?
+          @blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
+          value
+        else
+          value
+        end
       end
     end
   end
