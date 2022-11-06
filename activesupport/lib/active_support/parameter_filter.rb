@@ -63,39 +63,36 @@ module ActiveSupport
       def self.compile(filters, mask:)
         return lambda { |params| params.dup } if filters.empty?
 
-        strings, regexps, blocks, deep_regexps, deep_strings = [], [], [], nil, nil
+        strings, deep_strings, regexps, deep_regexps, blocks = nil
 
         filters.each do |item|
           case item
           when Proc
-            blocks << item
+            (blocks ||= []) << item
           when Regexp
             if item.to_s.include?("\\.")
               (deep_regexps ||= []) << item
             else
-              regexps << item
+              (regexps ||= []) << item
             end
           else
-            s = Regexp.escape(item.to_s)
-            if s.include?("\\.")
-              (deep_strings ||= []) << s
+            string = item.to_s.downcase
+            if string.include?(".")
+              (deep_strings ||= []) << string
             else
-              strings << s
+              (strings ||= []) << string
             end
           end
         end
 
-        regexps << Regexp.new(strings.join("|"), true) unless strings.empty?
-        (deep_regexps ||= []) << Regexp.new(deep_strings.join("|"), true) if deep_strings&.any?
-
-        new regexps, deep_regexps, blocks, mask: mask
+        new strings, deep_strings, regexps, deep_regexps, blocks, mask: mask
       end
 
-      attr_reader :regexps, :deep_regexps, :blocks
-
-      def initialize(regexps, deep_regexps, blocks, mask:)
+      def initialize(strings, deep_strings, regexps, deep_regexps, blocks, mask:)
+        @strings = strings
+        @deep_strings = deep_strings
         @regexps = regexps
-        @deep_regexps = deep_regexps&.any? ? deep_regexps : nil
+        @deep_regexps = deep_regexps
         @blocks = blocks
         @mask = mask
       end
@@ -111,22 +108,28 @@ module ActiveSupport
       end
 
       def value_for_key(key, value, full_parent_key = nil, original_params = nil)
-        if deep_regexps
-          full_key = full_parent_key ? "#{full_parent_key}.#{key}" : key.to_s
+        key_s = key.to_s
+
+        if @deep_strings || @deep_regexps
+          full_key = full_parent_key ? "#{full_parent_key}.#{key_s}" : key_s
         end
 
-        if regexps.any? { |r| r.match?(key.to_s) }
+        if @strings && (k = key_s.downcase) && @strings.any? { |s| k.include?(s) }
           value = @mask
-        elsif deep_regexps&.any? { |r| r.match?(full_key) }
+        elsif @deep_strings && (k = full_key.downcase) && @deep_strings.any? { |s| k.include?(s) }
+          value = @mask
+        elsif @regexps&.any? { |r| r.match?(key_s) }
+          value = @mask
+        elsif @deep_regexps&.any? { |r| r.match?(full_key) }
           value = @mask
         elsif value.is_a?(Hash)
           value = call(value, full_key, original_params)
         elsif value.is_a?(Array)
           value = value.map { |v| value_for_key(key, v, full_parent_key, original_params) }
-        elsif blocks.any?
+        elsif @blocks
           key = key.dup if key.duplicable?
           value = value.dup if value.duplicable?
-          blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
+          @blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
         end
 
         value
