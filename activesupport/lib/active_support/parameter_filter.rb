@@ -40,100 +40,84 @@ module ActiveSupport
     #
     # * <tt>:mask</tt> - A replaced object when filtered. Defaults to <tt>"[FILTERED]"</tt>.
     def initialize(filters = [], mask: FILTERED)
-      @filters = filters
       @mask = mask
+      compile_filters!(filters)
     end
 
     # Mask value of +params+ if key matches one of filters.
     def filter(params)
-      compiled_filter.call(params)
+      @no_filters ? params.dup : apply(params)
     end
 
     # Returns filtered value for given key. For +Proc+ filters, third block argument is not populated.
     def filter_param(key, value)
-      @filters.empty? ? value : compiled_filter.value_for_key(key, value)
+      @no_filters ? value : value_for_key(key, value)
     end
 
   private
-    def compiled_filter
-      @compiled_filter ||= CompiledFilter.compile(@filters, mask: @mask)
-    end
+    def compile_filters!(filters)
+      @no_filters = filters.empty?
+      return if @no_filters
 
-    class CompiledFilter # :nodoc:
-      def self.compile(filters, mask:)
-        return lambda { |params| params.dup } if filters.empty?
+      @strings, @deep_strings, @regexps, @deep_regexps, @blocks = nil
 
-        strings, deep_strings, regexps, deep_regexps, blocks = nil
-
-        filters.each do |item|
-          case item
-          when Proc
-            (blocks ||= []) << item
-          when Regexp
-            if item.to_s.include?("\\.")
-              (deep_regexps ||= []) << item
-            else
-              (regexps ||= []) << item
-            end
+      filters.each do |item|
+        case item
+        when Proc
+          (@blocks ||= []) << item
+        when Regexp
+          if item.to_s.include?("\\.")
+            (@deep_regexps ||= []) << item
           else
-            string = item.to_s.downcase
-            if string.include?(".")
-              (deep_strings ||= []) << string
-            else
-              (strings ||= []) << string
-            end
+            (@regexps ||= []) << item
+          end
+        else
+          string = item.to_s.downcase
+          if string.include?(".")
+            (@deep_strings ||= []) << string
+          else
+            (@strings ||= []) << string
           end
         end
+      end
+    end
 
-        new strings, deep_strings, regexps, deep_regexps, blocks, mask: mask
+    def apply(params, full_parent_key = nil, original_params = params)
+      filtered_params = params.class.new
+
+      params.each do |key, value|
+        filtered_params[key] = value_for_key(key, value, full_parent_key, original_params)
       end
 
-      def initialize(strings, deep_strings, regexps, deep_regexps, blocks, mask:)
-        @strings = strings
-        @deep_strings = deep_strings
-        @regexps = regexps
-        @deep_regexps = deep_regexps
-        @blocks = blocks
-        @mask = mask
+      filtered_params
+    end
+
+    def value_for_key(key, value, full_parent_key = nil, original_params = nil)
+      key_s = key.to_s
+
+      if @deep_strings || @deep_regexps
+        full_key = full_parent_key ? "#{full_parent_key}.#{key_s}" : key_s
       end
 
-      def call(params, full_parent_key = nil, original_params = params)
-        filtered_params = params.class.new
-
-        params.each do |key, value|
-          filtered_params[key] = value_for_key(key, value, full_parent_key, original_params)
-        end
-
-        filtered_params
+      if @strings && (k = key_s.downcase) && @strings.any? { |s| k.include?(s) }
+        value = @mask
+      elsif @deep_strings && (k = full_key.downcase) && @deep_strings.any? { |s| k.include?(s) }
+        value = @mask
+      elsif @regexps&.any? { |r| r.match?(key_s) }
+        value = @mask
+      elsif @deep_regexps&.any? { |r| r.match?(full_key) }
+        value = @mask
+      elsif value.is_a?(Hash)
+        value = apply(value, full_key, original_params)
+      elsif value.is_a?(Array)
+        value = value.map { |v| value_for_key(key, v, full_parent_key, original_params) }
+      elsif @blocks
+        key = key.dup if key.duplicable?
+        value = value.dup if value.duplicable?
+        @blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
       end
 
-      def value_for_key(key, value, full_parent_key = nil, original_params = nil)
-        key_s = key.to_s
-
-        if @deep_strings || @deep_regexps
-          full_key = full_parent_key ? "#{full_parent_key}.#{key_s}" : key_s
-        end
-
-        if @strings && (k = key_s.downcase) && @strings.any? { |s| k.include?(s) }
-          value = @mask
-        elsif @deep_strings && (k = full_key.downcase) && @deep_strings.any? { |s| k.include?(s) }
-          value = @mask
-        elsif @regexps&.any? { |r| r.match?(key_s) }
-          value = @mask
-        elsif @deep_regexps&.any? { |r| r.match?(full_key) }
-          value = @mask
-        elsif value.is_a?(Hash)
-          value = call(value, full_key, original_params)
-        elsif value.is_a?(Array)
-          value = value.map { |v| value_for_key(key, v, full_parent_key, original_params) }
-        elsif @blocks
-          key = key.dup if key.duplicable?
-          value = value.dup if value.duplicable?
-          @blocks.each { |b| b.arity == 2 ? b.call(key, value) : b.call(key, value, original_params) }
-        end
-
-        value
-      end
+      value
     end
   end
 end
