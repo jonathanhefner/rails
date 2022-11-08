@@ -1,3 +1,13 @@
+*   Add `config.precompile_filter_parameters`, which enables precompilation of
+    `config.filter_parameters` using `ActiveSupport::ParameterFilter.precompile_filters`.
+    Precompilation can improve filtering performance, depending on the quantity
+    and types of filters.
+
+    `config.precompile_filter_parameters` defaults to `true` for
+    `config.load_defaults 7.1` and above.
+
+    *Jonathan Hefner*
+
 *   Send 303 See Other status code back for the destroy action on newly generated
     scaffold controllers.
 
