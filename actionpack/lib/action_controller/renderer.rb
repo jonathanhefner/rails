@@ -1,5 +1,19 @@
 # frozen_string_literal: true
 
+$t = <<~ERB
+<hr>
+<%= method(:url_options).inspect %><br>
+<%= url_options.inspect %>
+<hr>
+<%= method(:default_url_options).inspect %><br>
+<%= default_url_options.inspect %>
+<hr>
+<%= method(:url_for).inspect %><br>
+<%= method(:posts_url).inspect %><br>
+<%= posts_url %>
+<hr>
+ERB
+
 module ActionController
   # ActionController::Renderer allows you to render arbitrary templates
   # without requirement of being in controller actions.
@@ -45,7 +59,7 @@ module ActionController
     }.freeze
 
     # Create a new renderer instance for a specific controller class.
-    def self.for(controller, env = {}, defaults = DEFAULTS.dup)
+    def self.for(controller, env = {}, defaults = defaults_for_url_options(controller._routes.tap{ pp [controller, controller.method(:_routes), _1] }&.default_url_options))
       new(controller, env, defaults)
     end
 
@@ -98,11 +112,21 @@ module ActionController
       instance = controller.new
       instance.set_request! request
       instance.set_response! controller.make_response!(request)
+
       instance.render_to_string(*args)
     end
     alias_method :render_to_string, :render # :nodoc:
 
     private
+      def self.defaults_for_url_options(url_options) # :nodoc:
+        url_options = url_options&.slice(:protocol, :host, :port) || {}
+        url_options[:host] ||= DEFAULTS[:http_host]
+
+        protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
+
+        DEFAULTS.merge(http_host: host, https: protocol == "https")
+      end
+
       def normalize_keys(defaults, env)
         new_env = {}
         env.each_pair { |k, v| new_env[rack_key_for(k)] = rack_value_for(k, v) }

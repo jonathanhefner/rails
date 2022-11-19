@@ -99,7 +99,17 @@ module Rails
     alias_method :sandbox?, :sandbox
     attr_reader :reloaders, :reloader, :executor, :autoloaders
 
-    delegate :default_url_options, :default_url_options=, to: :routes
+    # delegate :default_url_options, :default_url_options=, to: :routes
+    delegate :default_url_options, to: :routes
+
+    def default_url_options=(options)
+      routes.default_url_options = options
+      engine_options = options.slice(:protocol, :host, :port)
+
+      railties.each do |railtie|
+        railtie.routes.default_url_options.reverse_merge!(engine_options) if railtie.is_a?(Rails::Engine)
+      end
+    end
 
     INITIAL_VARIABLES = [:config, :railties, :routes_reloader, :reloaders,
                          :routes, :helpers, :app_env_config, :secrets] # :nodoc:

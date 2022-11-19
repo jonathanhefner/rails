@@ -12,10 +12,13 @@ module ActionController
 
       # Returns a renderer instance (inherited from ActionController::Renderer)
       # for the controller.
-      attr_reader :renderer
+      # attr_reader :renderer
+      def renderer
+        @renderer ||= Renderer.for(self)
+      end
 
       def setup_renderer! # :nodoc:
-        @renderer = Renderer.for(self)
+        # @renderer = Renderer.for(self)
       end
 
       def inherited(klass)
