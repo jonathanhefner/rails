@@ -48,23 +48,22 @@ module ActionController
   #       ApplicationController.renderer.new(method: 'post', https: true)
   #
   class Renderer
-    attr_reader :defaults, :controller
+    attr_reader :controller
 
     DEFAULTS = {
-      http_host: "example.org",
-      https: false,
       method: "get",
       script_name: "",
       input: ""
     }.freeze
 
     # Create a new renderer instance for a specific controller class.
-    def self.for(controller, env = {}, defaults = defaults_for_url_options(controller._routes.tap{ pp [controller, controller.method(:_routes), _1] }&.default_url_options))
+    def self.for(controller, env = nil, defaults = DEFAULTS)
+      # pp [controller, controller.method(:_routes), controller._routes]
       new(controller, env, defaults)
     end
 
     # Create a new renderer for the same controller but with a new env.
-    def new(env = {})
+    def new(env = nil)
       self.class.new controller, env, defaults
     end
 
@@ -79,7 +78,17 @@ module ActionController
     def initialize(controller, env, defaults)
       @controller = controller
       @defaults = defaults
-      @env = normalize_keys defaults, env
+      if env.blank? && @defaults == DEFAULTS
+        @env = nil
+      else
+        @env = self.class.normalize_env(@defaults)
+        @env.merge!(self.class.normalize_env(env)) unless env.blank?
+      end
+    end
+
+    def defaults
+      @defaults = @defaults.dup if @defaults.frozen?
+      @defaults
     end
 
     # Render templates with any options from ActionController::Base#render_to_string.
@@ -104,9 +113,7 @@ module ActionController
     #
     # Otherwise, a partial is rendered using the second parameter as the locals hash.
     def render(*args)
-      raise "missing controller" unless controller
-
-      request = ActionDispatch::Request.new @env
+      request = ActionDispatch::Request.new(env.dup)
       request.routes = controller._routes
 
       instance = controller.new
@@ -118,26 +125,75 @@ module ActionController
     alias_method :render_to_string, :render # :nodoc:
 
     private
-      def self.defaults_for_url_options(url_options) # :nodoc:
-        url_options = url_options&.slice(:protocol, :host, :port) || {}
-        url_options[:host] ||= DEFAULTS[:http_host]
+      class << self
+        # def update_env_with_url_options(env, url_options)
+        #   if url_options[:host]
+        #     protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
+        #     env[rack_key_for(:http_host)] = host
+        #     env[rack_key_for(:https)] = rack_value_for(:https, protocol == "https")
+        #   else
+        #     env[rack_key_for(:http_host)] = "example.org"
+        #     env[rack_key_for(:https)] = rack_value_for(:https, false)
+        #   end
 
-        protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
+        #   env
+        # end
 
-        DEFAULTS.merge(http_host: host, https: protocol == "https")
-      end
+        # def normalize_keys(env)
+        #   new_env = {}
+        #   env.each_pair { |k, v| new_env[rack_key_for(k)] = rack_value_for(k, v) }
+        #   new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
+        #   new_env
+        # end
 
-      def normalize_keys(defaults, env)
-        new_env = {}
-        env.each_pair { |k, v| new_env[rack_key_for(k)] = rack_value_for(k, v) }
+        # def rack_key_for(key)
+        #   RACK_KEY_TRANSLATION[key] || key.to_s
+        # end
 
-        defaults.each_pair do |k, v|
-          key = rack_key_for(k)
-          new_env[key] = rack_value_for(k, v) unless new_env.key?(key)
+        # def rack_value_for(key, value)
+        #   case key
+        #   when :https
+        #     value ? "on" : "off"
+        #   when :method
+        #     -value.upcase
+        #   else
+        #     value
+        #   end
+        # end
+
+        def update_env_with_url_options(env, url_options)
+          if url_options[:host]
+            protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
+            env["HTTP_HOST"] = host
+            env["HTTPS"] = protocol == "https" ? "on" : "off"
+          else
+            env["HTTP_HOST"] = "example.org"
+            env["HTTPS"] = "off"
+          end
+
+          env
         end
 
-        new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
-        new_env
+        def normalize_env(env)
+          new_env = {}
+
+          env.each_pair do |key, value|
+            case key
+            when :https
+              value = value ? "on" : "off"
+            when :method
+              value = -value.upcase
+            end
+
+            key = RACK_KEY_TRANSLATION[key] || key.to_s
+
+            new_env[key] = value
+          end
+
+          new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
+
+          new_env
+        end
       end
 
       RACK_KEY_TRANSLATION = {
@@ -145,22 +201,67 @@ module ActionController
         https:       "HTTPS",
         method:      "REQUEST_METHOD",
         script_name: "SCRIPT_NAME",
-        input:       "rack.input"
+        input:       "rack.input",
       }
 
-      def rack_key_for(key)
-        RACK_KEY_TRANSLATION[key] || key.to_s
+      DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
+
+      DEFAULT_ENV_FOR_URL_OPTIONS = Hash.new do |h, url_options| # :nodoc:
+        h[url_options] = update_env_with_url_options(DEFAULT_ENV.dup, url_options).freeze
       end
 
-      def rack_value_for(key, value)
-        case key
-        when :https
-          value ? "on" : "off"
-        when :method
-          -value.upcase
-        else
-          value
-        end
+      def url_options
+        controller._routes.default_url_options.slice(:protocol, :host, :port)
       end
+
+      ###
+
+      # def new_request
+      #   env =
+      #     if @env.nil?
+      #       DEFAULT_ENV_FOR_URL_OPTIONS[url_options].dup
+      #     elsif !@env.key?("HTTP_HOST")
+      #       self.class.update_env_with_url_options(@env, url_options)
+      #     else
+      #       @env
+      #     end
+
+      #   request = ActionDispatch::Request.new(env)
+      #   request.routes = controller._routes
+      #   request
+      # end
+
+      ###
+
+      def env
+        if @env.nil?
+          @env = DEFAULT_ENV_FOR_URL_OPTIONS[url_options]
+        elsif !@env.key?("HTTP_HOST")
+          @env = self.class.update_env_with_url_options(@env, url_options)
+        end
+
+        @env
+      end
+
+      ###
+
+      # def update_env_with_url_options!
+      #   @env_url_options ||= nil
+      #   url_options = self.url_options
+
+      #   if @env_url_options != url_options
+      #     self.class.update_env_with_url_options(@env, url_options)
+      #     @env_url_options = url_options
+      #   end
+      # end
+
+      # def env
+      #   if @env.nil?
+      #     @env = DEFAULT_ENV_FOR_URL_OPTIONS[url_options]
+      #   else
+      #     update_env_with_url_options! unless @defaults[:http_host] # TODO unless frozen...
+      #     @env
+      #   end
+      # end
   end
 end
