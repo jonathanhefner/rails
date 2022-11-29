@@ -1710,6 +1710,26 @@ module ApplicationTests
       assert_equal "XML", last_response.body
     end
 
+
+
+    # test "ActionController::Renderer observes Rails.application.default_url_options and config.force_ssl" do
+    test "ActionController::Base.renderer observes Rails.application.default_url_options and config.force_ssl" do
+      add_to_config <<~RUBY
+        routes.prepend do
+          resources :posts
+        end
+
+        config.force_ssl = true
+
+        Rails.application.default_url_options = { host: "foo.example.com" }
+      RUBY
+
+      app "development"
+
+      posts_url = ApplicationController.renderer.render(inline: "<%= posts_url %>")
+      assert_equal "https://foo.example.com/posts", posts_url
+    end
+
     test "Rails.application#env_config exists and includes some existing parameters" do
       make_basic_app
 

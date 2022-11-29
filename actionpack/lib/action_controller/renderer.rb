@@ -23,8 +23,6 @@ module ActionController
     attr_reader :controller
 
     DEFAULTS = {
-      http_host: "example.org",
-      https: false,
       method: "get",
       script_name: "",
       input: ""
@@ -69,11 +67,18 @@ module ActionController
     # * +defaults+ - Default values for the Rack env. Entries are specified in
     #   the same format as +env+. +env+ will be merged on top of these values.
     #   +defaults+ will be retained when calling #new on a renderer instance.
+    #
+    # If no HTTP host is specified, the HTTP host will be derived from the
+    # routes' +default_url_options+ (which can be configured via
+    # +Rails.application.default_url_options+). In this case, the +https+
+    # boolean will be derived from +ActionDispatch::Http::URL.secure_protocol+
+    # (which can be configured via +Rails.application.config.force_ssl+). If an
+    # HTTP host cannot be derived, it will default to <tt>"example.org"</tt>.
     def initialize(controller, env, defaults)
       @controller = controller
       @defaults = defaults
       if env.blank? && @defaults == DEFAULTS
-        @env = DEFAULT_ENV
+        @env = nil
       else
         @env = normalize_env(@defaults)
         @env.merge!(normalize_env(env)) unless env.blank?
@@ -110,7 +115,8 @@ module ActionController
     def render(*args)
       raise "missing controller" unless controller
 
-      request = ActionDispatch::Request.new(@env.dup)
+      # request = ActionDispatch::Request.new((@env || DEFAULT_ENV).dup)
+      request = ActionDispatch::Request.new(env.dup)
       request.routes = controller._routes
 
       instance = controller.new
@@ -142,6 +148,19 @@ module ActionController
         new_env
       end
 
+      def self.update_env_with_url_options(env, url_options)
+        if url_options[:host]
+          protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
+          env["HTTP_HOST"] = host
+          env["HTTPS"] = protocol == "https" ? "on" : "off"
+        else
+          env["HTTP_HOST"] = "example.org"
+          env["HTTPS"] = "off"
+        end
+
+        env
+      end
+
       RACK_KEY_TRANSLATION = {
         http_host:   "HTTP_HOST",
         https:       "HTTPS",
@@ -152,6 +171,25 @@ module ActionController
 
       DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
 
+      # TODO Concurrent::Map
+      DEFAULT_ENV_FOR_URL_OPTIONS = Hash.new do |h, url_options| # :nodoc:
+        h[url_options] = update_env_with_url_options(DEFAULT_ENV.dup, url_options).freeze
+      end
+
       delegate :normalize_env, to: :class
+
+      def url_options
+        controller._routes.default_url_options.slice(:protocol, :host, :port)
+      end
+
+      def env # TODO rename
+        if @env.nil?
+          @env = DEFAULT_ENV_FOR_URL_OPTIONS[url_options]
+        elsif !@env.key?("HTTP_HOST")
+          @env = self.class.update_env_with_url_options(@env, url_options)
+        end
+
+        @env
+      end
   end
 end
