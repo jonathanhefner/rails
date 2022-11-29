@@ -24,7 +24,6 @@ module ActionController
 
     DEFAULTS = {
       method: "get",
-      script_name: "",
       input: ""
     }.freeze
 
@@ -69,11 +68,10 @@ module ActionController
     #   +defaults+ will be retained when calling #new on a renderer instance.
     #
     # If no HTTP host is specified, the HTTP host will be derived from the
-    # routes' +default_url_options+ (which can be configured via
-    # +Rails.application.default_url_options+). In this case, the +https+
-    # boolean will be derived from +ActionDispatch::Http::URL.secure_protocol+
-    # (which can be configured via +Rails.application.config.force_ssl+). If an
-    # HTTP host cannot be derived, it will default to <tt>"example.org"</tt>.
+    # routes' +default_url_options+. In this case, the +https+ boolean and the
+    # +script_name+ will also be derived from +default_url_options+ if they were
+    # not specified. And if +default_url_options+ does not specify a +protocol+,
+    # then the +https+ boolean will fall back to +Rails.application.config.force_ssl+.
     def initialize(controller, env, defaults)
       @controller = controller
       @defaults = defaults
@@ -115,7 +113,6 @@ module ActionController
     def render(*args)
       raise "missing controller" unless controller
 
-      # request = ActionDispatch::Request.new((@env || DEFAULT_ENV).dup)
       request = ActionDispatch::Request.new(env.dup)
       request.routes = controller._routes
 
@@ -161,34 +158,35 @@ module ActionController
 
       delegate :normalize_env, to: :class
 
-      def url_options
-        # TODO no slice
-        controller._routes.default_url_options.slice(:protocol, :host, :port)
+      def default_url_options
+        controller._routes.default_url_options
       end
 
-      def update_env_with_url_options(env, url_options)
-        if url_options[:host]
-          protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
-          env["HTTP_HOST"] = host
-          env["HTTPS"] = protocol == "https" ? "on" : "off"
-        else
-          env["HTTP_HOST"] = "example.org"
-          env["HTTPS"] = "off"
+      def update_env_with_default_url_options(env)
+        url_options = { host: "example.org" }.merge!(default_url_options)
+        uri = URI(ActionDispatch::Http::URL.full_url_for(url_options))
+
+        env["HTTP_HOST"] = uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}"
+        unless env["HTTPS"]
+          env["HTTPS"] = uri.scheme == "https" ? "on" : "off"
+          env["rack.url_scheme"] = uri.scheme
         end
+        env["SCRIPT_NAME"] ||= uri.path.chomp("/")
 
         env
       end
 
-      def env # TODO rename
+      def env
         if @env.nil?
-          @env = DEFAULT_ENV_FOR_URL_OPTIONS.fetch_or_store(url_options) do |url_options|
-            update_env_with_url_options(DEFAULT_ENV.dup, url_options).freeze
+          DEFAULT_ENV_FOR_URL_OPTIONS.fetch(default_url_options) do
+            DEFAULT_ENV_FOR_URL_OPTIONS.compute_if_absent(default_url_options.dup.freeze) do
+              update_env_with_default_url_options(DEFAULT_ENV.dup)
+            end
           end
-        elsif !@env.key?("HTTP_HOST")
-          @env = update_env_with_url_options(@env, url_options)
+        else
+          @env = update_env_with_default_url_options(@env) if !@env.key?("HTTP_HOST")
+          @env
         end
-
-        @env
       end
   end
 end
