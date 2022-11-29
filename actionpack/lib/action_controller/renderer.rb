@@ -178,10 +178,8 @@ module ActionController
 
       def env
         if @env.nil?
-          DEFAULT_ENV_FOR_URL_OPTIONS.fetch(default_url_options) do
-            DEFAULT_ENV_FOR_URL_OPTIONS.compute_if_absent(default_url_options.dup.freeze) do
-              update_env_with_default_url_options(DEFAULT_ENV.dup)
-            end
+          DEFAULT_ENV_FOR_URL_OPTIONS.compute_if_absent(default_url_options) do
+            update_env_with_default_url_options(DEFAULT_ENV.dup)
           end
         else
           @env = update_env_with_default_url_options(@env) if !@env.key?("HTTP_HOST")

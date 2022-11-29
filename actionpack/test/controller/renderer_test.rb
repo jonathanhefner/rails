@@ -108,12 +108,12 @@ class RendererTest < ActiveSupport::TestCase
     html = "Hello world!"
     xml  = "<p>Hello world!</p>\n"
 
-    assert_equal html, render["respond_to/using_defaults"]
-    assert_equal xml,  render["respond_to/using_defaults", formats: :xml]
+    assert_equal html, render("respond_to/using_defaults")
+    assert_equal xml,  render("respond_to/using_defaults", formats: :xml)
   end
 
   test "rendering with helpers" do
-    assert_equal "<p>1\n<br />2</p>", render[inline: '<%= simple_format "1\n2" %>']
+    assert_equal "<p>1\n<br />2</p>", render(inline: '<%= simple_format "1\n2" %>')
   end
 
   test "rendering with user specified defaults" do
@@ -138,8 +138,73 @@ class RendererTest < ActiveSupport::TestCase
     assert_equal "https://example.org/asset.jpg", content
   end
 
+  test "with_default_url_options" do #######
+    url_options = {
+      protocol: "https",
+      host: "foo.example.com",
+      port: 3000,
+      script_name: "/bar",
+    }
+
+    with_default_url_options(url_options) do
+      assert_equal(
+        "https://foo.example.com:3000/bar/posts",
+        render(inline: "<%= full_url_for(controller: :posts) %>")
+      )
+    end
+  end
+
+  test "with_force_ssl" do #######
+    with_default_url_options(host: "foo.example.com") do
+      with_force_ssl(true) do
+        assert_equal(
+          "https://foo.example.com/posts",
+          render(inline: "<%= full_url_for(controller: :posts) %>")
+        )
+      end
+    end
+  end
+
+  test "specified https" do ######
+    with_default_url_options(host: "foo.example.com", protocol: "https") do
+      assert_equal(
+        "http://foo.example.com/posts",
+        renderer.new(https: false).render(inline: "<%= full_url_for(controller: :posts) %>")
+      )
+    end
+  end
+
+  test "specified script_name" do ######
+    with_default_url_options(host: "foo.example.com", script_name: "/foo") do
+      assert_equal(
+        "http://foo.example.com/bar/posts",
+        renderer.new(script_name: "/bar").render(inline: "<%= full_url_for(controller: :posts) %>")
+      )
+    end
+  end
+
   private
-    def render
-      @render ||= ApplicationController.renderer.method(:render)
+    def controller
+      @controller ||= ApplicationController
+    end
+
+    def renderer
+      controller.renderer
+    end
+
+    def render(...)
+      renderer.render(...)
+    end
+
+    def with_default_url_options(default_url_options, &block)
+      controller._routes.stub(:default_url_options, default_url_options, &block)
+    end
+
+    def with_force_ssl(force_ssl)
+      original_secure_protocol = ActionDispatch::Http::URL.secure_protocol
+      ActionDispatch::Http::URL.secure_protocol = force_ssl
+      yield
+    ensure
+      ActionDispatch::Http::URL.secure_protocol = original_secure_protocol
     end
 end
