@@ -148,7 +148,25 @@ module ActionController
         new_env
       end
 
-      def self.update_env_with_url_options(env, url_options)
+      RACK_KEY_TRANSLATION = {
+        http_host:   "HTTP_HOST",
+        https:       "HTTPS",
+        method:      "REQUEST_METHOD",
+        script_name: "SCRIPT_NAME",
+        input:       "rack.input"
+      }
+
+      DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
+      DEFAULT_ENV_FOR_URL_OPTIONS = Concurrent::Map.new # :nodoc:
+
+      delegate :normalize_env, to: :class
+
+      def url_options
+        # TODO no slice
+        controller._routes.default_url_options.slice(:protocol, :host, :port)
+      end
+
+      def update_env_with_url_options(env, url_options)
         if url_options[:host]
           protocol, host = ActionDispatch::Http::URL.url_for(url_options).split("://", 2)
           env["HTTP_HOST"] = host
@@ -161,32 +179,13 @@ module ActionController
         env
       end
 
-      RACK_KEY_TRANSLATION = {
-        http_host:   "HTTP_HOST",
-        https:       "HTTPS",
-        method:      "REQUEST_METHOD",
-        script_name: "SCRIPT_NAME",
-        input:       "rack.input"
-      }
-
-      DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
-
-      # TODO Concurrent::Map
-      DEFAULT_ENV_FOR_URL_OPTIONS = Hash.new do |h, url_options| # :nodoc:
-        h[url_options] = update_env_with_url_options(DEFAULT_ENV.dup, url_options).freeze
-      end
-
-      delegate :normalize_env, to: :class
-
-      def url_options
-        controller._routes.default_url_options.slice(:protocol, :host, :port)
-      end
-
       def env # TODO rename
         if @env.nil?
-          @env = DEFAULT_ENV_FOR_URL_OPTIONS[url_options]
+          @env = DEFAULT_ENV_FOR_URL_OPTIONS.fetch_or_store(url_options) do |url_options|
+            update_env_with_url_options(DEFAULT_ENV.dup, url_options).freeze
+          end
         elsif !@env.key?("HTTP_HOST")
-          @env = self.class.update_env_with_url_options(@env, url_options)
+          @env = update_env_with_url_options(@env, url_options)
         end
 
         @env
