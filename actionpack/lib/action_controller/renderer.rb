@@ -111,9 +111,9 @@ module ActionController
     #
     # Otherwise, a partial is rendered using the second parameter as the locals hash.
     def render(*args)
-      raise "missing controller" unless controller
+      raise "missing controller" unless controller ######
 
-      request = ActionDispatch::Request.new(env.dup)
+      request = ActionDispatch::Request.new(env_for_request)
       request.routes = controller._routes
 
       instance = controller.new
@@ -159,21 +159,12 @@ module ActionController
 
       delegate :normalize_env, to: :class
 
-      def default_host_env
-        url_options = { host: "example.org" }.merge!(controller._routes.default_url_options)
-        uri = URI(ActionDispatch::Http::URL.full_url_for(url_options))
-
-        normalize_env(
-          http_host: uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}",
-          https: uri.scheme == "https",
-          script_name: uri.path.chomp("/")
-        )
-      end
-
-      def env
-        # @env is updated atomically, in case this renderer is shared across threads.
-        @env = default_host_env.merge!(@env) if !@env.key?("HTTP_HOST")
-        @env
+      def env_for_request
+        if @env.key?("HTTP_HOST")
+          @env.dup
+        else
+          controller._routes.default_env.merge(@env)
+        end
       end
   end
 end
