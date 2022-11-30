@@ -76,7 +76,7 @@ module ActionController
       @controller = controller
       @defaults = defaults
       if env.blank? && @defaults == DEFAULTS
-        @env = nil
+        @env = DEFAULT_ENV
       else
         @env = normalize_env(@defaults)
         @env.merge!(normalize_env(env)) unless env.blank?
@@ -140,7 +140,9 @@ module ActionController
           new_env[key] = value
         end
 
-        new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
+        if new_env["HTTPS"] || new_env["HTTP_HOST"]
+          new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
+        end
 
         new_env
       end
@@ -154,41 +156,24 @@ module ActionController
       }
 
       DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
-      DEFAULT_ENV_FOR_URL = Concurrent::Map.new # :nodoc:
 
       delegate :normalize_env, to: :class
 
-      def request_url
-        @request_url ||= begin
-          url_options = { host: "example.org" }.merge!(controller._routes.default_url_options)
-          -ActionDispatch::Http::URL.full_url_for(url_options)
-        end
-      end
+      def default_host_env
+        url_options = { host: "example.org" }.merge!(controller._routes.default_url_options)
+        uri = URI(ActionDispatch::Http::URL.full_url_for(url_options))
 
-      def update_env_for_url(env, url)
-        uri = URI(url)
-
-        env["HTTP_HOST"] = uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}"
-
-        unless env["HTTPS"]
-          env["HTTPS"] = uri.scheme == "https" ? "on" : "off"
-          env["rack.url_scheme"] = uri.scheme
-        end
-
-        env["SCRIPT_NAME"] ||= uri.path.chomp("/")
-
-        env
+        normalize_env(
+          http_host: uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}",
+          https: uri.scheme == "https",
+          script_name: uri.path.chomp("/")
+        )
       end
 
       def env
-        if @env.nil?
-          DEFAULT_ENV_FOR_URL.compute_if_absent(request_url) do
-            update_env_for_url(DEFAULT_ENV.dup, request_url)
-          end
-        else
-          @env = update_env_for_url(@env, request_url) if !@env.key?("HTTP_HOST")
-          @env
-        end
+        # @env is updated atomically, in case this renderer is shared across threads.
+        @env = default_host_env.merge!(@env) if !@env.key?("HTTP_HOST")
+        @env
       end
   end
 end

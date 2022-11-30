@@ -137,44 +137,48 @@ class RendererTest < ActiveSupport::TestCase
     assert_equal "https://example.org/asset.jpg", content
   end
 
-  test "with_default_url_options" do #######
-    url_options = {
+  test "uses default_url_options from the controller's routes when env[:http_host] not specified" do
+    with_default_url_options(
       protocol: "https",
       host: "foo.example.com",
       port: 3000,
       script_name: "/bar",
-    }
-
-    with_default_url_options(url_options) do
+    ) do
       assert_equal "https://foo.example.com:3000/bar/posts", render_url_for(controller: :posts)
     end
   end
 
-  test "with_force_ssl" do #######
+  test "uses config.force_ssl when env[:http_host] not specified" do
     with_default_url_options(host: "foo.example.com") do
-      with_force_ssl(true) do
+      with_force_ssl do
         assert_equal "https://foo.example.com/posts", render_url_for(controller: :posts)
       end
     end
   end
 
-  test "specified https" do ######
-    with_default_url_options(host: "foo.example.com", protocol: "http") do
-      @renderer = renderer.new(https: true) #######
+  test "can specify env[:https] when using default_url_options" do
+    with_default_url_options(host: "foo.example.com") do
+      @renderer = renderer.new(https: true)
       assert_equal "https://foo.example.com/posts", render_url_for(controller: :posts)
     end
+  end
 
+  test "env[:https] overrides default_url_options[:protocol]" do
     with_default_url_options(host: "foo.example.com", protocol: "https") do
       @renderer = renderer.new(https: false)
       assert_equal "http://foo.example.com/posts", render_url_for(controller: :posts)
     end
   end
 
-  test "specified script_name" do ######
-    with_default_url_options(host: "foo.example.com", script_name: "/foo") do
+  test "can specify env[:script_name] when using default_url_options" do
+    with_default_url_options(host: "foo.example.com") do
       @renderer = renderer.new(script_name: "/bar")
       assert_equal "http://foo.example.com/bar/posts", render_url_for(controller: :posts)
+    end
+  end
 
+  test "env[:script_name] overrides default_url_options[:script_name]" do
+    with_default_url_options(host: "foo.example.com", script_name: "/bar") do
       @renderer = renderer.new(script_name: "")
       assert_equal "http://foo.example.com/posts", render_url_for(controller: :posts)
     end
@@ -197,15 +201,12 @@ class RendererTest < ActiveSupport::TestCase
       renderer.controller._routes.stub(:default_url_options, default_url_options, &block)
     end
 
-    def with_force_ssl(force_ssl)
+    def with_force_ssl(force_ssl = true)
+      # In a real app, an initializer will set `URL.secure_protocol = app.config.force_ssl`.
       original_secure_protocol = ActionDispatch::Http::URL.secure_protocol
       ActionDispatch::Http::URL.secure_protocol = force_ssl
       yield
     ensure
       ActionDispatch::Http::URL.secure_protocol = original_secure_protocol
     end
-
-    # def posts_url
-    #   render inline: "<%= full_url_for(controller: :posts, action: :index) %>"
-    # end
 end
