@@ -154,23 +154,27 @@ module ActionController
       }
 
       DEFAULT_ENV = normalize_env(DEFAULTS).freeze # :nodoc:
-      DEFAULT_ENV_FOR_URL_OPTIONS = Concurrent::Map.new # :nodoc:
+      DEFAULT_ENV_FOR_URL = Concurrent::Map.new # :nodoc:
 
       delegate :normalize_env, to: :class
 
-      def default_url_options
-        controller._routes.default_url_options
+      def request_url
+        @request_url ||= begin
+          url_options = { host: "example.org" }.merge!(controller._routes.default_url_options)
+          -ActionDispatch::Http::URL.full_url_for(url_options)
+        end
       end
 
-      def update_env_with_default_url_options(env)
-        url_options = { host: "example.org" }.merge!(default_url_options)
-        uri = URI(ActionDispatch::Http::URL.full_url_for(url_options))
+      def update_env_for_url(env, url)
+        uri = URI(url)
 
         env["HTTP_HOST"] = uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}"
+
         unless env["HTTPS"]
           env["HTTPS"] = uri.scheme == "https" ? "on" : "off"
           env["rack.url_scheme"] = uri.scheme
         end
+
         env["SCRIPT_NAME"] ||= uri.path.chomp("/")
 
         env
@@ -178,11 +182,11 @@ module ActionController
 
       def env
         if @env.nil?
-          DEFAULT_ENV_FOR_URL_OPTIONS.compute_if_absent(default_url_options) do
-            update_env_with_default_url_options(DEFAULT_ENV.dup)
+          DEFAULT_ENV_FOR_URL.compute_if_absent(request_url) do
+            update_env_for_url(DEFAULT_ENV.dup, request_url)
           end
         else
-          @env = update_env_with_default_url_options(@env) if !@env.key?("HTTP_HOST")
+          @env = update_env_for_url(@env, request_url) if !@env.key?("HTTP_HOST")
           @env
         end
       end

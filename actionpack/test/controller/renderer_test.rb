@@ -117,9 +117,8 @@ class RendererTest < ActiveSupport::TestCase
   end
 
   test "rendering with user specified defaults" do
-    ApplicationController.renderer.defaults.merge!(hello: "hello", https: true)
-    renderer = ApplicationController.renderer.new
-    content = renderer.render inline: "<%= request.ssl? %>"
+    renderer.defaults.merge!(hello: "hello", https: true)
+    content = renderer.new.render inline: "<%= request.ssl? %>"
 
     assert_equal "true", content
   end
@@ -147,57 +146,55 @@ class RendererTest < ActiveSupport::TestCase
     }
 
     with_default_url_options(url_options) do
-      assert_equal(
-        "https://foo.example.com:3000/bar/posts",
-        render(inline: "<%= full_url_for(controller: :posts) %>")
-      )
+      assert_equal "https://foo.example.com:3000/bar/posts", render_url_for(controller: :posts)
     end
   end
 
   test "with_force_ssl" do #######
     with_default_url_options(host: "foo.example.com") do
       with_force_ssl(true) do
-        assert_equal(
-          "https://foo.example.com/posts",
-          render(inline: "<%= full_url_for(controller: :posts) %>")
-        )
+        assert_equal "https://foo.example.com/posts", render_url_for(controller: :posts)
       end
     end
   end
 
   test "specified https" do ######
+    with_default_url_options(host: "foo.example.com", protocol: "http") do
+      @renderer = renderer.new(https: true) #######
+      assert_equal "https://foo.example.com/posts", render_url_for(controller: :posts)
+    end
+
     with_default_url_options(host: "foo.example.com", protocol: "https") do
-      assert_equal(
-        "http://foo.example.com/posts",
-        renderer.new(https: false).render(inline: "<%= full_url_for(controller: :posts) %>")
-      )
+      @renderer = renderer.new(https: false)
+      assert_equal "http://foo.example.com/posts", render_url_for(controller: :posts)
     end
   end
 
   test "specified script_name" do ######
     with_default_url_options(host: "foo.example.com", script_name: "/foo") do
-      assert_equal(
-        "http://foo.example.com/bar/posts",
-        renderer.new(script_name: "/bar").render(inline: "<%= full_url_for(controller: :posts) %>")
-      )
+      @renderer = renderer.new(script_name: "/bar")
+      assert_equal "http://foo.example.com/bar/posts", render_url_for(controller: :posts)
+
+      @renderer = renderer.new(script_name: "")
+      assert_equal "http://foo.example.com/posts", render_url_for(controller: :posts)
     end
   end
 
   private
-    def controller
-      @controller ||= ApplicationController
-    end
-
     def renderer
-      controller.renderer
+      @renderer ||= ApplicationController.renderer.new
     end
 
     def render(...)
       renderer.render(...)
     end
 
+    def render_url_for(*args)
+      render inline: "<%= full_url_for(*#{args.inspect}) %>"
+    end
+
     def with_default_url_options(default_url_options, &block)
-      controller._routes.stub(:default_url_options, default_url_options, &block)
+      renderer.controller._routes.stub(:default_url_options, default_url_options, &block)
     end
 
     def with_force_ssl(force_ssl)
@@ -207,4 +204,8 @@ class RendererTest < ActiveSupport::TestCase
     ensure
       ActionDispatch::Http::URL.secure_protocol = original_secure_protocol
     end
+
+    # def posts_url
+    #   render inline: "<%= full_url_for(controller: :posts, action: :index) %>"
+    # end
 end
