@@ -141,10 +141,10 @@ class RendererTest < ActiveSupport::TestCase
     with_default_url_options(
       protocol: "https",
       host: "foo.example.com",
-      port: 3000,
+      port: 9001,
       script_name: "/bar",
     ) do
-      assert_equal "https://foo.example.com:3000/bar/posts", render_url_for(controller: :posts)
+      assert_equal "https://foo.example.com:9001/bar/posts", render_url_for(controller: :posts)
     end
   end
 
