@@ -127,14 +127,14 @@ class RendererTest < ActiveSupport::TestCase
     renderer = ApplicationController.renderer
     content  = renderer.render inline: "<%= asset_url 'asset.jpg' %>"
 
-    assert_equal "http://example.com/asset.jpg", content
+    assert_equal "http://example.org/asset.jpg", content
   end
 
   test "return valid asset URL when https is true" do
     renderer = ApplicationController.renderer.new https: true
     content  = renderer.render inline: "<%= asset_url 'asset.jpg' %>"
 
-    assert_equal "https://example.com/asset.jpg", content
+    assert_equal "https://example.org/asset.jpg", content
   end
 
   test "uses default_url_options from the controller's routes when env[:http_host] not specified" do
@@ -203,6 +203,7 @@ class RendererTest < ActiveSupport::TestCase
       yield
     ensure
       renderer.controller._routes.default_url_options = original_default_url_options
+      renderer.controller._routes.default_env # recompute
     end
 
     def with_force_ssl(force_ssl = true)

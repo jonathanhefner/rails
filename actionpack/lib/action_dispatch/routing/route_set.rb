@@ -407,15 +407,11 @@ module ActionDispatch
       private :make_request
 
       def default_env
-        unless default_url_options == @default_env&.[]("action_dispatch.routes.default_url_options")
-          @default_env = nil
-        end
-
-        @default_env ||= begin
+        if default_url_options != @default_env&.[]("action_dispatch.routes.default_url_options")
           url_options = default_url_options.dup.freeze
-          uri = URI(ActionDispatch::Http::URL.full_url_for(host: "example.com", **url_options))
+          uri = URI(ActionDispatch::Http::URL.full_url_for(host: "example.org", **url_options))
 
-          {
+          @default_env = {
             "action_dispatch.routes" => self,
             "action_dispatch.routes.default_url_options" => url_options,
             "HTTPS" => uri.scheme == "https" ? "on" : "off",
@@ -425,6 +421,8 @@ module ActionDispatch
             "rack.input" => "",
           }.freeze
         end
+
+        @default_env
       end
 
       def draw(&block)
