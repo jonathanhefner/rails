@@ -1443,7 +1443,7 @@ module ApplicationTests
 
         Rails.application.default_url_options = {
           host: "foo.example.com",
-          port: 3000,
+          port: 9001,
           script_name: "/bar",
         }
 
@@ -1455,7 +1455,7 @@ module ApplicationTests
       app "development"
 
       posts_url = ApplicationController.renderer.render(inline: "<%= posts_url %>")
-      assert_equal "https://foo.example.com:3000/bar/posts", posts_url
+      assert_equal "https://foo.example.com:9001/bar/posts", posts_url
     end
 
     test "ActionController::Base.raise_on_open_redirects is true by default for new apps" do

@@ -67,11 +67,12 @@ module ActionController
     #   the same format as +env+. +env+ will be merged on top of these values.
     #   +defaults+ will be retained when calling #new on a renderer instance.
     #
-    # If no HTTP host is specified, the HTTP host will be derived from the
+    # If no +http_host+ is specified, the env HTTP host will be derived from the
     # routes' +default_url_options+. In this case, the +https+ boolean and the
     # +script_name+ will also be derived from +default_url_options+ if they were
-    # not specified. And if +default_url_options+ does not specify a +protocol+,
-    # then the +https+ boolean will fall back to +Rails.application.config.force_ssl+.
+    # not specified. Additionally, the +https+ boolean will fall back to
+    # +Rails.application.config.force_ssl+ if +default_url_options+ does not
+    # specify a +protocol+.
     def initialize(controller, env, defaults)
       @controller = controller
       @defaults = defaults
@@ -111,8 +112,6 @@ module ActionController
     #
     # Otherwise, a partial is rendered using the second parameter as the locals hash.
     def render(*args)
-      raise "missing controller" unless controller ######
-
       request = ActionDispatch::Request.new(env_for_request)
       request.routes = controller._routes
 
@@ -140,7 +139,12 @@ module ActionController
           new_env[key] = value
         end
 
-        if new_env["HTTPS"] || new_env["HTTP_HOST"]
+        if new_env["HTTP_HOST"]
+          new_env["HTTPS"] ||= "off"
+          new_env["SCRIPT_NAME"] ||= ""
+        end
+
+        if new_env["HTTPS"]
           new_env["rack.url_scheme"] = new_env["HTTPS"] == "on" ? "https" : "http"
         end
 

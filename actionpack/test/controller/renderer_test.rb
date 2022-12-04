@@ -203,7 +203,7 @@ class RendererTest < ActiveSupport::TestCase
       yield
     ensure
       renderer.controller._routes.default_url_options = original_default_url_options
-      renderer.controller._routes.default_env # recompute
+      renderer.controller._routes.default_env # refresh
     end
 
     def with_force_ssl(force_ssl = true)
