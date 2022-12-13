@@ -36,12 +36,6 @@ module ActiveSupport
         rotate()
       end
 
-      def clear_rotations
-        changing_configuration!
-        @rotate_options.clear
-        self
-      end
-
       def on_rotation(&callback)
         changing_configuration!
         @on_rotation = callback

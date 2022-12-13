@@ -114,12 +114,6 @@ module ActiveSupport
     # Invokes #rotate with the default options.
 
     ##
-    # :method: clear_rotations
-    # :call-seq: clear_rotations
-    #
-    # Clears the list of option sets.
-
-    ##
     # :method: on_rotation
     # :call-seq: on_rotation(&callback)
     #

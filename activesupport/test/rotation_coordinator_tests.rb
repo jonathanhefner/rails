@@ -167,14 +167,6 @@ module RotationCoordinatorTests
       assert_equal "message", roundtrip("message", sha1_coordinator["other salt"], coordinator["other salt"])
     end
 
-    test "can clear rotations" do
-      @coordinator.clear_rotations.rotate(digest: "MD5")
-      codec = @coordinator["salt"]
-      similar_codec = (make_coordinator.rotate(digest: "MD5"))["salt"]
-
-      assert_equal "message", roundtrip("message", codec, similar_codec)
-    end
-
     test "configures codecs with on_rotation" do
       rotated = 0
       @coordinator.on_rotation { rotated += 1 }
@@ -207,11 +199,6 @@ module RotationCoordinatorTests
     test "prevents adding a rotation after rotations have been applied" do
       @coordinator["salt"]
       assert_raises { @coordinator.rotate(digest: "MD5") }
-    end
-
-    test "prevents clearing rotations after rotations have been applied" do
-      @coordinator["salt"]
-      assert_raises { @coordinator.clear_rotations }
     end
 
     test "prevents changing on_rotation after on_rotation has been applied" do
