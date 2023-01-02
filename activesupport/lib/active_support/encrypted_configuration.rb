@@ -18,7 +18,24 @@ module ActiveSupport
       end
     end
 
-    delegate :[], :fetch, to: :config
+    ##
+    # :call-seq:
+    #   [](key)
+    #
+    # Returns the decrypted value corresponding to a given key. The key should
+    # be symbol.
+    #
+    #   my_config = ActiveSupport::EncryptedConfiguration.new(...)
+    #   my_config.read # => "abc: 123\n"
+    #
+    #   my_config[:abc]
+    #   # => 123
+    #   my_config[:foo]
+    #   # => nil
+    #
+    delegate :[], to: :config
+
+    delegate :fetch, to: :config
     delegate_missing_to :options
 
     def initialize(config_path:, key_path:, env_key:, raise_if_missing_key:)
