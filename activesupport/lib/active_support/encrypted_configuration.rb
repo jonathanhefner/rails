@@ -35,7 +35,31 @@ module ActiveSupport
     #
     delegate :[], to: :config
 
+    ##
+    # :call-seq:
+    #   fetch(key)
+    #   fetch(key, default)
+    #   fetch(key, &block)
+    #
+    # Returns the decrypted value corresponding to a given key. The key should
+    # be symbol. If the key does not have a corresponding value, returns the
+    # given default, or raises a +KeyError+ if no default was given. See also
+    # <tt>Hash#fetch</tt>.
+    #
+    #   my_config = ActiveSupport::EncryptedConfiguration.new(...)
+    #   my_config.read # => "abc: 123\n"
+    #
+    #   my_config.fetch(:abc)
+    #   # => 123
+    #   my_config.fetch(:foo)
+    #   # => KeyError
+    #   my_config.fetch(:foo, "bar")
+    #   # => "bar"
+    #   my_config.fetch(:foo) { |key| key.to_s }
+    #   # => "foo"
+    #
     delegate :fetch, to: :config
+
     delegate_missing_to :options
 
     def initialize(config_path:, key_path:, env_key:, raise_if_missing_key:)
