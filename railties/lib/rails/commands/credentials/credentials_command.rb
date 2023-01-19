@@ -26,12 +26,19 @@ module Rails
 
       desc "edit", "Opens the decrypted credentials in `$EDITOR` for editing"
       def edit
-        extract_environment_option_from_argument(default_environment: nil)
+        environment_specified = options[:environment].present?
+        extract_environment_option_from_argument
+        ENV["RAILS_ENV"] = options[:environment]
         require_application!
         load_generators
 
+        if environment_specified
+          @content_path = "config/credentials/#{options[:environment]}.yml.enc" unless config.key?(:content_path)
+          @key_path = "config/credentials/#{options[:environment]}.key" unless config.key?(:key_path)
+        end
+
         ensure_encryption_key_has_been_added
-        ensure_credentials_have_been_added
+        ensure_credentials_have_been_added(environment_specified)
         ensure_diffing_driver_is_configured
 
         change_credentials_in_system_editor
@@ -39,7 +46,8 @@ module Rails
 
       desc "show", "Shows the decrypted credentials"
       def show
-        extract_environment_option_from_argument(default_environment: nil)
+        extract_environment_option_from_argument
+        ENV["RAILS_ENV"] = options[:environment]
         require_application!
 
         say credentials.read.presence || missing_credentials_message
@@ -55,6 +63,7 @@ module Rails
       def diff(content_path = nil)
         if @content_path = content_path
           extract_environment_option_from_argument(default_environment: extract_environment_from_path(content_path))
+          ENV["RAILS_ENV"] = options[:environment]
           require_application!
 
           say credentials.read.presence || credentials.content_path.read
@@ -67,6 +76,18 @@ module Rails
       end
 
       private
+        def config
+          Rails.application.config.credentials
+        end
+
+        def content_path
+          @content_path ||= relative_path(config.content_path)
+        end
+
+        def key_path
+          @key_path ||= relative_path(config.key_path)
+        end
+
         def credentials
           @credentials ||= Rails.application.encrypted(content_path, key_path: key_path)
         end
@@ -81,12 +102,12 @@ module Rails
           encryption_key_file_generator.ignore_key_file(key_path)
         end
 
-        def ensure_credentials_have_been_added
+        def ensure_credentials_have_been_added(environment_specified)
           require "rails/generators/rails/credentials/credentials_generator"
 
           Rails::Generators::CredentialsGenerator.new(
             [content_path, key_path],
-            skip_secret_key_base: %w[development test].include?(options[:environment]),
+            skip_secret_key_base: environment_specified && %w[development test].include?(options[:environment]),
             quiet: true
           ).invoke_all
         end
@@ -113,22 +134,18 @@ module Rails
 
         def missing_credentials_message
           if !credentials.key?
-            "Missing '#{key_path}' to decrypt credentials. See `#{executable(:help)}`"
+            "Missing '#{key_path}' to decrypt credentials. See `#{executable(:help)}`."
           else
             "File '#{content_path}' does not exist. Use `#{executable(:edit)}` to change that."
           end
         end
 
-        def content_path
-          @content_path ||= options[:environment] ? "config/credentials/#{options[:environment]}.yml.enc" : "config/credentials.yml.enc"
-        end
-
-        def key_path
-          options[:environment] ? "config/credentials/#{options[:environment]}.key" : "config/master.key"
+        def relative_path(path)
+          Rails.root.join(path).relative_path_from(Rails.root).to_s
         end
 
         def extract_environment_from_path(path)
-          available_environments.find { |env| path.include? env } if path.end_with?(".yml.enc")
+          available_environments.find { |env| path.end_with?("#{env}.yml.enc") }
         end
     end
   end
