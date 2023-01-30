@@ -13,27 +13,6 @@ require "rails/command/actions"
 module Rails
   module Command
     class Base < Thor
-      class Error < Thor::Error # :nodoc:
-      end
-
-      class CorrectableError < Error # :nodoc:
-        attr_reader :key, :options
-
-        def initialize(message, key, options)
-          @key     = key
-          @options = options
-          super(message)
-        end
-
-        if defined?(DidYouMean::SpellChecker) && defined?(DidYouMean::Correctable)
-          include DidYouMean::Correctable
-
-          def corrections
-            @corrections ||= DidYouMean::SpellChecker.new(dictionary: options).correct(key)
-          end
-        end
-      end
-
       include Actions
 
       class_attribute :bin, instance_accessor: false, default: "bin/rails"
