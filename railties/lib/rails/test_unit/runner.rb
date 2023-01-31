@@ -31,9 +31,9 @@ module Rails
           $VERBOSE = argv.delete_at(w_index) if w_index
         end
 
-        def rake_run(argv = [])
+        def run_from_rake(test_command, argv = [])
           # Ensure the tests run during the Rake Task action, not when the process exits
-          success = system("rails", "test", *argv, *Shellwords.split(ENV["TESTOPTS"] || ""))
+          success = system("rails", test_command, *argv, *Shellwords.split(ENV["TESTOPTS"] || ""))
           success || exit(false)
         end
 
