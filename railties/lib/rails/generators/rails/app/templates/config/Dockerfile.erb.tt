@@ -1,0 +1,22 @@
+<%%= initial_stage %>
+
+
+<%%= runtime_packages_stage %>
+
+
+<%%= buildtime_packages_stage %>
+
+
+<%%= gems_stage %>
+
+
+<%% if node? -%>
+<%%= node_modules_stage %>
+
+
+<%% end -%>
+<%%= final_stage user: "rails", workdir: "/rails" %>
+
+<%%= prepare_app %>
+
+<%%= expose_server %>
