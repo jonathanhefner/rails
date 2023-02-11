@@ -1,0 +1,24 @@
+FROM ruby:<%%= ruby_version %>-slim as base
+
+<%%= setup user: "appuser", workdir: "/rails" %>
+ENV BUNDLE_WITHOUT="development"
+
+
+# Throw-away build stage to reduce size of final image.
+FROM base as build
+
+<%%= install_packages %>
+<%%= install_node if node? %>
+<%%= install_gems %>
+<%%= install_node_modules if node? %>
+<%%= prepare_app %>
+
+
+# Final stage for app image.
+FROM base
+
+<%%= install_packages deploy: true %>
+
+<%%= copy_artifacts from: "build" %>
+
+<%%= expose_server %>
