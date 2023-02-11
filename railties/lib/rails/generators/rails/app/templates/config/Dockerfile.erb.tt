@@ -1,0 +1,58 @@
+<%%#
+Run `bin/rails docker:render` to render this template to a Dockerfile in your
+application's root directory. For more information about the helpers used in
+this template, see https://api.rubyonrails.org/classes/Rails/DockerfileHelpers.html
+-%>
+
+FROM ruby:<%%= ruby_version %>-slim as initial
+
+ENV BUNDLE_APP_CONFIG=.bundle
+# ENV RUBY_YJIT_ENABLE=1
+
+
+FROM initial as runtime_packages
+
+<%%= install_packages runtime_packages, skip_recommends: true %>
+
+
+FROM runtime_packages as buildtime_packages
+
+<%%= install_packages buildtime_packages %>
+
+
+FROM buildtime_packages as gems
+
+WORKDIR /staged
+COPY Gemfile Gemfile.lock* .
+<%%= install_gems %>
+
+
+<%% if node? -%>
+FROM buildtime_packages as node_modules
+
+<%%= install_node %>
+
+WORKDIR /staged
+COPY package.json yarn.lock .
+<%%= install_node_modules %>
+
+
+<%% end -%>
+FROM runtime_packages
+
+RUN useradd rails
+USER 1000
+
+WORKDIR /rails
+
+COPY --chown=1000 --from=gems /staged .
+<%% if node? -%>
+COPY --chown=1000 --from=node_modules /staged .
+<%% end -%>
+COPY --chown=1000 . .
+
+<%%= prepare_app %>
+
+ENTRYPOINT ["bin/docker-entrypoint"]
+CMD ["bin/rails", "server"]
+EXPOSE 3000
