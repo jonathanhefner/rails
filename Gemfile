@@ -64,6 +64,7 @@ gem "listen", "~> 3.3", require: false
 gem "libxml-ruby", platforms: :ruby
 gem "connection_pool", require: false
 gem "rexml", require: false
+gem "msgpack", require: false
 
 # for railties
 gem "bootsnap", ">= 1.4.4", require: false
