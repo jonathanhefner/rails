@@ -5,6 +5,8 @@ require "date"
 require "ipaddr"
 require "pathname"
 require "uri/generic"
+require "msgpack/bigint"
+require "active_support/hash_with_indifferent_access"
 require "active_support/time"
 
 module ActiveSupport
@@ -14,92 +16,92 @@ module ActiveSupport
 
       def configure_factory(factory)
         factory.register_type 0, Symbol,
-    packer: Symbol.method_defined?(:name) ? :name : :to_s,
-    unpacker: :to_sym.to_proc,
+          packer: :to_msgpack_ext,
+          unpacker: :from_msgpack_ext,
           optimized_symbols_parsing: true
 
-        factory.register_type 1, Module,
-          packer: method(:dump_module),
-          unpacker: method(:load_module)
-
-        factory.register_type 2, Integer,
+        factory.register_type 1, Integer,
           packer: ::MessagePack::Bigint.method(:to_msgpack_ext),
           unpacker: ::MessagePack::Bigint.method(:from_msgpack_ext),
           oversized_integer_extension: true
 
-        factory.register_type 3, BigDecimal,
+        factory.register_type 2, BigDecimal,
           packer: :_dump,
           unpacker: :_load
 
-        factory.register_type 4, Rational,
+        factory.register_type 3, Rational,
           packer: method(:write_rational),
           unpacker: method(:read_rational),
           recursive: true
 
-        factory.register_type 5, Complex,
+        factory.register_type 4, Complex,
           packer: method(:write_complex),
           unpacker: method(:read_complex),
           recursive: true
 
-        factory.register_type 6, Regexp,
-          packer: :to_s,
-          unpacker: :new
-
-        factory.register_type 7, Range,
+        factory.register_type 5, Range,
           packer: method(:write_range),
           unpacker: method(:read_range),
           recursive: true
 
-        factory.register_type 8, Set,
+        factory.register_type 6, ActiveSupport::HashWithIndifferentAccess,
+          packer: method(:write_hash_with_indifferent_access),
+          unpacker: method(:read_hash_with_indifferent_access),
+          recursive: true
+
+        factory.register_type 7, Set,
           packer: method(:write_set),
           unpacker: method(:read_set),
           recursive: true
 
-        factory.register_type 9, Pathname,
-          packer: :to_s,
-          unpacker: :new
-
-        factory.register_type 10, URI::Generic,
-          packer: :to_s,
-          unpacker: URI.method(:parse)
-
-        factory.register_type 11, IPAddr,
-          packer: :to_s,
-          unpacker: :new
-
-        factory.register_type 12, Date,
-          packer: method(:write_date),
-          unpacker: method(:read_date),
-          recursive: true
-
-        factory.register_type 13, DateTime,
-          packer: method(:write_datetime),
-          unpacker: method(:read_datetime),
-          recursive: true
-
-        factory.register_type 14, Time,
+        factory.register_type 8, Time,
           packer: method(:write_time),
           unpacker: method(:read_time),
           recursive: true
 
-        factory.register_type 15, ActiveSupport::TimeWithZone,
+        factory.register_type 9, DateTime,
+          packer: method(:write_datetime),
+          unpacker: method(:read_datetime),
+          recursive: true
+
+        factory.register_type 10, Date,
+          packer: method(:write_date),
+          unpacker: method(:read_date),
+          recursive: true
+
+        factory.register_type 11, ActiveSupport::TimeWithZone,
           packer: method(:write_time_with_zone),
           unpacker: method(:read_time_with_zone),
           recursive: true
 
-        factory.register_type 16, ActiveSupport::TimeZone,
+        factory.register_type 12, ActiveSupport::TimeZone,
           packer: method(:dump_time_zone),
           unpacker: method(:load_time_zone)
 
-        factory.register_type 17, ActiveSupport::Duration,
+        factory.register_type 13, ActiveSupport::Duration,
           packer: method(:write_duration),
           unpacker: method(:read_duration),
           recursive: true
 
-        factory.register_type 18, ActiveSupport::HashWithIndifferentAccess,
-          packer: method(:write_hash_with_indifferent_access),
-          unpacker: method(:read_hash_with_indifferent_access),
-          recursive: true
+        factory.register_type 14, URI::Generic,
+          packer: :to_s,
+          unpacker: URI.method(:parse)
+
+        factory.register_type 15, IPAddr,
+          packer: :to_s,
+          unpacker: :new
+
+        factory.register_type 16, Pathname,
+          packer: :to_s,
+          unpacker: :new
+
+        factory.register_type 17, Regexp,
+          packer: :to_s,
+          unpacker: :new
+
+        factory.register_type 18, Module,
+          packer: method(:dump_module),
+          unpacker: method(:load_module)
 
         factory.register_type 127, Object,
           packer: method(:write_object),
@@ -109,21 +111,38 @@ module ActiveSupport
         factory
       end
 
-      def dump_module(mod)
-        raise "Cannot serialize anonymous module or class" unless mod.name
-        mod.name
+      LOAD_WITH_MSGPACK_EXT = 0
+      LOAD_WITH_JSON_CREATE = 1
+
+      def write_object(object, packer)
+        if object.respond_to?(:to_msgpack_ext)
+          if object.class.respond_to?(:from_msgpack_ext)
+            packer.write(LOAD_WITH_MSGPACK_EXT)
+            write_module(object.class, packer)
+          end
+          packer.write(object.to_msgpack_ext)
+        elsif object.respond_to?(:serializable_hash)
+          packer.write(object.serializable_hash)
+        elsif object.respond_to?(:as_json)
+          if object.class.respond_to?(:json_create)
+            packer.write(LOAD_WITH_JSON_CREATE)
+            write_module(object.class, packer)
+          end
+          packer.write(object.as_json)
+        else
+          raise "Cannot serialize #{object.inspect} due to unrecognized type #{object.class}"
+        end
       end
 
-      def load_module(name)
-        Object.const_get(name)
-      end
-
-      def write_module(mod, packer)
-        packer.write(dump_module(mod))
-      end
-
-      def read_module(unpacker)
-        load_module(unpacker.read)
+      def read_object(unpacker)
+        case (value = unpacker.read)
+        when LOAD_WITH_MSGPACK_EXT
+          read_module(unpacker).from_msgpack_ext(unpacker.read)
+        when LOAD_WITH_JSON_CREATE
+          read_module(unpacker).json_create(unpacker.read)
+        else
+          value
+        end
       end
 
       def write_rational(rational, packer)
@@ -155,6 +174,14 @@ module ActiveSupport
         Range.new(unpacker.read, unpacker.read, unpacker.read)
       end
 
+      def write_hash_with_indifferent_access(hwia, packer)
+        packer.write(hwia.to_h)
+      end
+
+      def read_hash_with_indifferent_access(unpacker)
+        ActiveSupport::HashWithIndifferentAccess.new(unpacker.read)
+      end
+
       def write_set(set, packer)
         packer.write(set.to_a)
       end
@@ -163,12 +190,15 @@ module ActiveSupport
         Set.new(unpacker.read)
       end
 
-      def write_date(date, packer)
-        packer.write(date.jd)
+      def write_time(time, packer)
+        packer.write(time.tv_sec)
+        packer.write(time.tv_nsec)
+        packer.write(time.utc_offset)
       end
 
-      def read_date(unpacker)
-        Date.jd(unpacker.read)
+      def read_time(unpacker)
+        # TODO optimize Time.at
+        Time.at_without_coercion(unpacker.read, unpacker.read, :nanosecond, in: unpacker.read)
       end
 
       def write_datetime(datetime, packer)
@@ -184,15 +214,12 @@ module ActiveSupport
         DateTime.jd(unpacker.read, unpacker.read, unpacker.read, unpacker.read + read_rational(unpacker), read_rational(unpacker))
       end
 
-      def write_time(time, packer)
-        packer.write(time.tv_sec)
-        packer.write(time.tv_nsec)
-        packer.write(time.utc_offset)
+      def write_date(date, packer)
+        packer.write(date.jd)
       end
 
-      def read_time(unpacker)
-        # TODO optimize Time.at
-        Time.at_without_coercion(unpacker.read, unpacker.read, :nanosecond, in: unpacker.read)
+      def read_date(unpacker)
+        Date.jd(unpacker.read)
       end
 
       def write_time_with_zone(twz, packer)
@@ -232,45 +259,22 @@ module ActiveSupport
         ActiveSupport::Duration.new(value, parts)
       end
 
-      def write_hash_with_indifferent_access(hwia, packer)
-        packer.write(hwia.to_h)
+      def dump_module(mod)
+        raise "Cannot serialize anonymous module or class" unless mod.name
+        mod.name
       end
 
-      def read_hash_with_indifferent_access(unpacker)
-        ActiveSupport::HashWithIndifferentAccess.new(unpacker.read)
+      def load_module(name)
+        Object.const_get(name)
       end
 
-      UNPACK_AS_MSGPACK_EXT = 0
-
-      def write_object(object, packer)
-        if object.respond_to?(:to_msgpack_ext)
-          if object.class.respond_to?(:from_msgpack_ext)
-            packer.write(UNPACK_AS_MSGPACK_EXT)
-            write_module(object.class)
-          end
-          packer.write(object.to_msgpack_ext)
-        elsif object.respond_to?(:serializable_hash)
-          packer.write(object.serializable_hash)
-        elsif object.respond_to?(:as_json)
-          # TODO? check for class::create_json a la class::from_msgpack_ext
-          packer.write(object.as_json)
-        else
-          # TODO? fall back to Marshal
-          raise "Cannot serialize #{object.inspect} due to unrecognized type #{object.class}"
-        end
+      def write_module(mod, packer)
+        packer.write(dump_module(mod))
       end
 
-      def read_object(unpacker)
-        value = unpacker.read
-
-        case value
-        when UNPACK_AS_MSGPACK_EXT
-          read_module(unpacker).from_msgpack_ext(unpacker.read)
-        else
-          value
-        end
+      def read_module(unpacker)
+        load_module(unpacker.read)
       end
-
     end
   end
 end

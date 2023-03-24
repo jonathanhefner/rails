@@ -5,7 +5,7 @@ module ActiveSupport
     module Serializer # :nodoc:
       attr_accessor :message_pack_factory
 
-      def dump(data)
+      def dump(object)
         @packer_key ||= "message_pack_packer_#{object_id}"
         packer = (IsolatedExecutionState[@packer_key] ||= message_pack_factory.packer)
 
@@ -17,7 +17,7 @@ module ActiveSupport
         packer.write(true)
         packer.write(false)
 
-        packer.write(data)
+        packer.write(object)
         packer.full_pack
       ensure
         packer.reset
@@ -39,7 +39,7 @@ module ActiveSupport
       end
 
       def register_type(id, ...)
-        raise "Type ID #{id} has already be registered" if message_pack_factory.type_registered?(id)
+        raise "Type ID #{id} has already been registered" if message_pack_factory.type_registered?(id)
         message_pack_factory.register_type(id, ...)
       end
     end

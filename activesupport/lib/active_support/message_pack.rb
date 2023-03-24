@@ -2,9 +2,10 @@
 
 begin
   require "msgpack"
-  require "msgpack/bigint"
 rescue LoadError => error
-  # TODO
+  $stderr.puts "You don't have msgpack installed in your application. " \
+    "Please add it to your Gemfile and run bundle install."
+  raise error
 end
 
 require_relative "message_pack/extensions"
@@ -18,11 +19,8 @@ module ActiveSupport
     module CacheSerializer
       extend Serializer
       self.message_pack_factory = ActiveSupport::MessagePack.message_pack_factory.dup
-      # .tap do |factory|
-      #   factory.register_type 126, ActiveRecord::Base,
-      #     packer: :marshal_dump,
-      #     unpacker: :marshal_load
-      # end
     end
+
+    ActiveSupport.run_load_hooks(:message_pack, self)
   end
 end

@@ -9,16 +9,18 @@ module ActiveSupport
       singleton_class.attr_accessor :use_message_serializer_for_metadata
 
       ENVELOPE_SERIALIZERS = [
-        ActiveSupport::MessagePack,
         ::JSON,
         ActiveSupport::JSON,
         ActiveSupport::JsonWithMarshalFallback,
         Marshal,
       ]
 
-      TIMESTAMP_SERIALIZERS = [
-        ActiveSupport::MessagePack,
-      ]
+      TIMESTAMP_SERIALIZERS = []
+
+      ActiveSupport.on_load(:message_pack) do
+        ENVELOPE_SERIALIZERS.unshift ActiveSupport::MessagePack
+        TIMESTAMP_SERIALIZERS.unshift ActiveSupport::MessagePack
+      end
 
       private
         def serialize_with_metadata(data, **metadata)
