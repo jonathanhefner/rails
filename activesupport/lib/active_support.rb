@@ -70,6 +70,7 @@ module ActiveSupport
     autoload :KeyGenerator
     autoload :MessageEncryptor
     autoload :MessageEncryptors
+    autoload :MessagePack
     autoload :MessageVerifier
     autoload :MessageVerifiers
     autoload :Multibyte

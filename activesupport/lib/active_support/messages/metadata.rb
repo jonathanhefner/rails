@@ -9,10 +9,15 @@ module ActiveSupport
       singleton_class.attr_accessor :use_message_serializer_for_metadata
 
       ENVELOPE_SERIALIZERS = [
+        ActiveSupport::MessagePack,
         ::JSON,
         ActiveSupport::JSON,
         ActiveSupport::JsonWithMarshalFallback,
         Marshal,
+      ]
+
+      TIMESTAMP_SERIALIZERS = [
+        ActiveSupport::MessagePack,
       ]
 
       private
@@ -80,11 +85,17 @@ module ActiveSupport
         end
 
         def pick_expiry(expires_at, expires_in)
-          if expires_at
-            expires_at.utc.iso8601(3)
+          expiry = if expires_at
+            expires_at.utc
           elsif expires_in
-            Time.now.utc.advance(seconds: expires_in).iso8601(3)
+            Time.now.utc.advance(seconds: expires_in)
           end
+
+          unless Metadata::TIMESTAMP_SERIALIZERS.include?(serializer)
+            expiry = expiry&.iso8601(3)
+          end
+
+          expiry
         end
 
         def parse_expiry(expires_at)
