@@ -115,19 +115,17 @@ module ActiveSupport
       LOAD_WITH_JSON_CREATE = 1
 
       def write_object(object, packer)
-        if object.respond_to?(:to_msgpack_ext)
-          if object.class.respond_to?(:from_msgpack_ext)
-            packer.write(LOAD_WITH_MSGPACK_EXT)
-            write_module(object.class, packer)
-          end
+        if object.class.respond_to?(:from_msgpack_ext)
+          packer.write(LOAD_WITH_MSGPACK_EXT)
+          write_module(object.class, packer)
           packer.write(object.to_msgpack_ext)
+        elsif object.class.respond_to?(:json_create)
+          packer.write(LOAD_WITH_JSON_CREATE)
+          write_module(object.class, packer)
+          packer.write(object.as_json)
         elsif object.respond_to?(:serializable_hash)
           packer.write(object.serializable_hash)
         elsif object.respond_to?(:as_json)
-          if object.class.respond_to?(:json_create)
-            packer.write(LOAD_WITH_JSON_CREATE)
-            write_module(object.class, packer)
-          end
           packer.write(object.as_json)
         else
           raise "Cannot serialize #{object.inspect} due to unrecognized type #{object.class}"
@@ -197,7 +195,6 @@ module ActiveSupport
       end
 
       def read_time(unpacker)
-        # TODO optimize Time.at
         Time.at_without_coercion(unpacker.read, unpacker.read, :nanosecond, in: unpacker.read)
       end
 
