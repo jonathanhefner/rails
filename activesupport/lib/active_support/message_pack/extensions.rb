@@ -11,10 +11,13 @@ require "active_support/time"
 
 module ActiveSupport
   module MessagePack
+    class UnserializableObjectError < StandardError; end
+    class MissingClassError < StandardError; end
+
     module Extensions # :nodoc:
       extend self
 
-      def configure_factory(factory)
+      def install(factory)
         factory.register_type 0, Symbol,
           packer: :to_msgpack_ext,
           unpacker: :from_msgpack_ext,
@@ -39,108 +42,78 @@ module ActiveSupport
           unpacker: method(:read_complex),
           recursive: true
 
-        factory.register_type 5, Range,
-          packer: method(:write_range),
-          unpacker: method(:read_range),
-          recursive: true
-
-        factory.register_type 6, ActiveSupport::HashWithIndifferentAccess,
-          packer: method(:write_hash_with_indifferent_access),
-          unpacker: method(:read_hash_with_indifferent_access),
-          recursive: true
-
-        factory.register_type 7, Set,
-          packer: method(:write_set),
-          unpacker: method(:read_set),
-          recursive: true
-
-        factory.register_type 8, Time,
-          packer: method(:write_time),
-          unpacker: method(:read_time),
-          recursive: true
-
-        factory.register_type 9, DateTime,
+        factory.register_type 5, DateTime,
           packer: method(:write_datetime),
           unpacker: method(:read_datetime),
           recursive: true
 
-        factory.register_type 10, Date,
+        factory.register_type 6, Date,
           packer: method(:write_date),
           unpacker: method(:read_date),
           recursive: true
 
-        factory.register_type 11, ActiveSupport::TimeWithZone,
+        factory.register_type 7, Time,
+          packer: method(:write_time),
+          unpacker: method(:read_time),
+          recursive: true
+
+        factory.register_type 8, ActiveSupport::TimeWithZone,
           packer: method(:write_time_with_zone),
           unpacker: method(:read_time_with_zone),
           recursive: true
 
-        factory.register_type 12, ActiveSupport::TimeZone,
+        factory.register_type 9, ActiveSupport::TimeZone,
           packer: method(:dump_time_zone),
           unpacker: method(:load_time_zone)
 
-        factory.register_type 13, ActiveSupport::Duration,
+        factory.register_type 10, ActiveSupport::Duration,
           packer: method(:write_duration),
           unpacker: method(:read_duration),
           recursive: true
 
-        factory.register_type 14, URI::Generic,
+        factory.register_type 11, Range,
+          packer: method(:write_range),
+          unpacker: method(:read_range),
+          recursive: true
+
+        factory.register_type 12, Set,
+          packer: method(:write_set),
+          unpacker: method(:read_set),
+          recursive: true
+
+        factory.register_type 13, URI::Generic,
           packer: :to_s,
           unpacker: URI.method(:parse)
 
-        factory.register_type 15, IPAddr,
+        factory.register_type 14, IPAddr,
           packer: :to_s,
           unpacker: :new
 
-        factory.register_type 16, Pathname,
+        factory.register_type 15, Pathname,
           packer: :to_s,
           unpacker: :new
 
-        factory.register_type 17, Regexp,
+        factory.register_type 16, Regexp,
           packer: :to_s,
           unpacker: :new
 
-        factory.register_type 18, Module,
-          packer: method(:dump_module),
-          unpacker: method(:load_module)
+        factory.register_type 17, ActiveSupport::HashWithIndifferentAccess,
+          packer: method(:write_hash_with_indifferent_access),
+          unpacker: method(:read_hash_with_indifferent_access),
+          recursive: true
+      end
 
+      def install_unregistered_type_error_handler(factory)
+        factory.register_type 127, Object,
+          packer: method(:raise_unserializable),
+          unpacker: method(:raise_invalid_format)
+      end
+
+      def install_unregistered_type_fallback(factory)
         factory.register_type 127, Object,
           packer: method(:write_object),
           unpacker: method(:read_object),
           recursive: true
-
-        factory
-      end
-
-      LOAD_WITH_MSGPACK_EXT = 0
-      LOAD_WITH_JSON_CREATE = 1
-
-      def write_object(object, packer)
-        if object.class.respond_to?(:from_msgpack_ext)
-          packer.write(LOAD_WITH_MSGPACK_EXT)
-          write_module(object.class, packer)
-          packer.write(object.to_msgpack_ext)
-        elsif object.class.respond_to?(:json_create)
-          packer.write(LOAD_WITH_JSON_CREATE)
-          write_module(object.class, packer)
-          packer.write(object.as_json)
-        elsif object.respond_to?(:serializable_hash)
-          packer.write(object.serializable_hash)
-        elsif object.respond_to?(:as_json)
-          packer.write(object.as_json)
-        else
-          raise "Cannot serialize #{object.inspect} due to unrecognized type #{object.class}"
-        end
-      end
-
-      def read_object(unpacker)
-        case (value = unpacker.read)
-        when LOAD_WITH_MSGPACK_EXT
-          read_module(unpacker).from_msgpack_ext(unpacker.read)
-        when LOAD_WITH_JSON_CREATE
-          read_module(unpacker).json_create(unpacker.read)
-        else
-          value
-        end
       end
 
       def write_rational(rational, packer)
@@ -162,42 +135,6 @@ module ActiveSupport
         Complex(unpacker.read, unpacker.read)
       end
 
-      def write_range(range, packer)
-        packer.write(range.begin)
-        packer.write(range.end)
-        packer.write(range.exclude_end?)
-      end
-
-      def read_range(unpacker)
-        Range.new(unpacker.read, unpacker.read, unpacker.read)
-      end
-
-      def write_hash_with_indifferent_access(hwia, packer)
-        packer.write(hwia.to_h)
-      end
-
-      def read_hash_with_indifferent_access(unpacker)
-        ActiveSupport::HashWithIndifferentAccess.new(unpacker.read)
-      end
-
-      def write_set(set, packer)
-        packer.write(set.to_a)
-      end
-
-      def read_set(unpacker)
-        Set.new(unpacker.read)
-      end
-
-      def write_time(time, packer)
-        packer.write(time.tv_sec)
-        packer.write(time.tv_nsec)
-        packer.write(time.utc_offset)
-      end
-
-      def read_time(unpacker)
-        Time.at_without_coercion(unpacker.read, unpacker.read, :nanosecond, in: unpacker.read)
-      end
-
       def write_datetime(datetime, packer)
         packer.write(datetime.jd)
         packer.write(datetime.hour)
@@ -217,6 +154,16 @@ module ActiveSupport
 
       def read_date(unpacker)
         Date.jd(unpacker.read)
+      end
+
+      def write_time(time, packer)
+        packer.write(time.tv_sec)
+        packer.write(time.tv_nsec)
+        packer.write(time.utc_offset)
+      end
+
+      def read_time(unpacker)
+        Time.at_without_coercion(unpacker.read, unpacker.read, :nanosecond, in: unpacker.read)
       end
 
       def write_time_with_zone(twz, packer)
@@ -256,21 +203,77 @@ module ActiveSupport
         ActiveSupport::Duration.new(value, parts)
       end
 
-      def dump_module(mod)
-        raise "Cannot serialize anonymous module or class" unless mod.name
-        mod.name
+      def write_range(range, packer)
+        packer.write(range.begin)
+        packer.write(range.end)
+        packer.write(range.exclude_end?)
       end
 
-      def load_module(name)
-        Object.const_get(name)
+      def read_range(unpacker)
+        Range.new(unpacker.read, unpacker.read, unpacker.read)
       end
 
-      def write_module(mod, packer)
-        packer.write(dump_module(mod))
+      def write_set(set, packer)
+        packer.write(set.to_a)
       end
 
-      def read_module(unpacker)
-        load_module(unpacker.read)
+      def read_set(unpacker)
+        Set.new(unpacker.read)
+      end
+
+      def write_hash_with_indifferent_access(hwia, packer)
+        packer.write(hwia.to_h)
+      end
+
+      def read_hash_with_indifferent_access(unpacker)
+        ActiveSupport::HashWithIndifferentAccess.new(unpacker.read)
+      end
+
+      def raise_unserializable(object, *)
+        raise UnserializableObjectError, "Unsupported type #{object.class} for object #{object.inspect}"
+      end
+
+      def raise_invalid_format(*)
+        raise "Invalid format"
+      end
+
+      def write_class(klass, packer)
+        raise UnserializableObjectError, "Cannot serialize anonymous class" unless klass.name
+        packer.write(klass.name)
+      end
+
+      def read_class(unpacker)
+        Object.const_get(unpacker.read)
+      rescue NameError => error
+        raise MissingClassError, "Missing class: #{error.name}"
+      end
+
+      LOAD_WITH_MSGPACK_EXT = 0
+      LOAD_WITH_JSON_CREATE = 1
+
+      def write_object(object, packer)
+        if object.class.respond_to?(:from_msgpack_ext)
+          packer.write(LOAD_WITH_MSGPACK_EXT)
+          write_class(object.class, packer)
+          packer.write(object.to_msgpack_ext)
+        elsif object.class.respond_to?(:json_create)
+          packer.write(LOAD_WITH_JSON_CREATE)
+          write_class(object.class, packer)
+          packer.write(object.as_json)
+        else
+          raise_unserializable(object)
+        end
+      end
+
+      def read_object(unpacker)
+        case unpacker.read
+        when LOAD_WITH_MSGPACK_EXT
+          read_class(unpacker).from_msgpack_ext(unpacker.read)
+        when LOAD_WITH_JSON_CREATE
+          read_class(unpacker).json_create(unpacker.read)
+        else
+          raise_invalid_format
+        end
       end
     end
   end

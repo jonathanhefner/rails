@@ -3,45 +3,40 @@
 module ActiveSupport
   module MessagePack
     module Serializer # :nodoc:
+      SIGNATURE = (+"\xCC\x80").force_encoding("ASCII-8BIT").freeze # == 128.to_msgpack
+      SIGNATURE_INT = 128
+
       attr_accessor :message_pack_factory
 
       def dump(object)
-        @packer_key ||= "message_pack_packer_#{object_id}"
-        packer = (IsolatedExecutionState[@packer_key] ||= message_pack_factory.packer)
-
-        # TODO RFC:
-        # Write `true` ("\xC3") and `false` ("\xC2") as a kind of signature.
-        # Consuming code can check `start_with?("\xC3\xC2")` to determine
-        # whether the payload was serialized with MessagePack, similar to
-        # checking `start_with?("\x04\x08")` for Marshal.
-        packer.write(true)
-        packer.write(false)
-
-        packer.write(object)
-        packer.full_pack
-      ensure
-        packer.reset
+        message_pack_pool.packer do |packer|
+          packer.write(SIGNATURE_INT)
+          packer.write(object)
+          packer.full_pack
+        end
       end
 
-      def load(serialized)
-        @unpacker_key ||= "message_pack_unpacker_#{object_id}"
-        unpacker = (IsolatedExecutionState[@unpacker_key] ||= message_pack_factory.unpacker)
-
-        unpacker.feed(serialized)
-
-        unless unpacker.read == true && unpacker.read == false
-          raise "Invalid serialization format"
+      def load(dumped)
+        message_pack_pool.unpacker do |unpacker|
+          unpacker.feed_reference(dumped)
+          raise "Invalid serialization format" unless unpacker.read == SIGNATURE_INT
+          unpacker.full_unpack
         end
+      end
 
-        unpacker.full_unpack
-      ensure
-        unpacker.reset
+      def signature?(message)
+        message.start_with?(SIGNATURE)
       end
 
       def register_type(id, ...)
         raise "Type ID #{id} has already been registered" if message_pack_factory.type_registered?(id)
         message_pack_factory.register_type(id, ...)
       end
+
+      private
+        def message_pack_pool
+          @message_pack_pool ||= message_pack_factory.pool(ENV.fetch("RAILS_MAX_THREADS") { 5 })
+        end
     end
   end
 end
