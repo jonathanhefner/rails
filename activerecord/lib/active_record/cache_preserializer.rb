@@ -73,8 +73,9 @@ module ActiveRecord
 
     def decode_class(signature_or_id)
       @mappings.fetch(signature_or_id) do
-        class_name = signature_or_id[0]
-        @mappings[@mappings.size] = Object.const_get(class_name)
+        serial_id = @mappings.size
+        @signatures[serial_id] = signature_or_id
+        @mappings[serial_id] = Object.const_get(signature_or_id[0])
       end
     end
 
