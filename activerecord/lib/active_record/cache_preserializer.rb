@@ -19,7 +19,8 @@ module ActiveRecord
 
     def initialize
       @mappings = {}.compare_by_identity
-      @signatures = {}
+      @attribute_names_by_id = {}
+      @association_names_by_id = {}
     end
 
     def encode(input)
@@ -31,16 +32,16 @@ module ActiveRecord
     end
 
     def decode(encoded)
-      if encoded_record?(encoded)
-        decode_record(encoded)
-      elsif encoded
+      if encoded_array?(encoded)
         encoded.map { |encoded_record| decode_record(encoded_record) }
+      elsif encoded
+        decode_record(encoded)
       end
     end
 
     def encode_record(record)
       @mappings.fetch(record) do
-        encoded = [encode_class(record.class)]
+        encoded = encode_class(record.class)
         @mappings[record] = @mappings.size
         push_cached_associations(encoded, record)
         push_record_state(encoded, record)
@@ -51,7 +52,7 @@ module ActiveRecord
     def decode_record(encoded_or_id)
       @mappings.fetch(encoded_or_id) do
         encoded = encoded_or_id.dup
-        klass = decode_class(encoded[0])
+        klass = decode_class(encoded)
         @mappings[@mappings.size] = record = klass.allocate
         pop_record_state(encoded, record)
         pop_cached_associations(encoded, record)
@@ -60,22 +61,22 @@ module ActiveRecord
     end
 
     def encode_class(klass)
-      @mappings.fetch(klass) do
+      Array(@mappings.fetch(klass) do
         serial_id = @mappings[klass] = @mappings.size
 
-        @signatures[serial_id] = [
+        [
           klass.name,
-          klass.attribute_names,
-          klass.reflect_on_all_associations.map!(&:name),
+          @attribute_names_by_id[serial_id] = klass.attribute_names,
+          @association_names_by_id[serial_id] = klass.reflect_on_all_associations.map!(&:name),
         ]
-      end
+      end)
     end
 
-    def decode_class(signature_or_id)
-      @mappings.fetch(signature_or_id) do
+    def decode_class(encoded)
+      @mappings.fetch(encoded[0]) do
         serial_id = @mappings.size
-        @signatures[serial_id] = signature_or_id
-        @mappings[serial_id] = Object.const_get(signature_or_id[0])
+        class_name, @attribute_names_by_id[serial_id], @association_names_by_id[serial_id], * = encoded
+        @mappings[serial_id] = Object.const_get(class_name)
       end
     end
 
@@ -111,16 +112,16 @@ module ActiveRecord
       end
     end
 
-    def encoded_record?(encoded)
-      encoded&.dig(0, 0).is_a?(String)
+    def encoded_array?(encoded)
+      encoded.is_a?(Array) && (encoded.empty? || encoded[0].is_a?(Array))
     end
 
     def encoded_attribute_names(encoded_record)
-      @signatures.fetch(encoded_record[0], encoded_record[0])[1]
+      @attribute_names_by_id[encoded_record[0]] || encoded_record[1]
     end
 
     def encoded_association_names(encoded_record)
-      @signatures.fetch(encoded_record[0], encoded_record[0])[2]
+      @association_names_by_id[encoded_record[0]] || encoded_record[2]
     end
   end
 end
