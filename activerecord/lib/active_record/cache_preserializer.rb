@@ -19,8 +19,8 @@ module ActiveRecord
 
     def initialize
       @mappings = {}.compare_by_identity
-      @attribute_names_by_id = {}
-      @association_names_by_id = {}
+      @attributes_by_class = {}
+      @associations_by_class = {}
     end
 
     def encode(input)
@@ -41,7 +41,7 @@ module ActiveRecord
 
     def encode_record(record)
       @mappings.fetch(record) do
-        encoded = encode_class(record.class)
+        encoded = begin_encode(record.class)
         @mappings[record] = @mappings.size
         push_cached_associations(encoded, record)
         push_record_state(encoded, record)
@@ -52,7 +52,7 @@ module ActiveRecord
     def decode_record(encoded_or_id)
       @mappings.fetch(encoded_or_id) do
         encoded = encoded_or_id.dup
-        klass = decode_class(encoded)
+        klass = begin_decode(encoded)
         @mappings[@mappings.size] = record = klass.allocate
         pop_record_state(encoded, record)
         pop_cached_associations(encoded, record)
@@ -60,42 +60,45 @@ module ActiveRecord
       end
     end
 
-    def encode_class(klass)
+    def begin_encode(klass)
       Array(@mappings.fetch(klass) do
-        serial_id = @mappings[klass] = @mappings.size
-
-        [
-          klass.name,
-          @attribute_names_by_id[serial_id] = klass.attribute_names,
-          @association_names_by_id[serial_id] = klass.reflect_on_all_associations.map!(&:name),
-        ]
+        @mappings[klass] = @mappings.size
+        attributes = @attributes_by_class[klass] = klass.attribute_names
+        associations = @associations_by_class[klass] = klass.reflect_on_all_associations.map!(&:name)
+        [klass.name, attributes, associations]
       end)
     end
 
-    def decode_class(encoded)
+    def begin_decode(encoded)
       @mappings.fetch(encoded[0]) do
-        serial_id = @mappings.size
-        class_name, @attribute_names_by_id[serial_id], @association_names_by_id[serial_id], * = encoded
-        @mappings[serial_id] = Object.const_get(class_name)
+        klass = @mappings[@mappings.size] = Object.const_get(encoded[0])
+        @attributes_by_class[klass] = encoded[1]
+        @associations_by_class[klass] = encoded[2]
+        klass
       end
     end
 
     def push_record_state(encoded, record)
       encoded << record.new_record?
-      encoded_attribute_names(encoded).reverse_each do |name|
+      # @attributes_by_class[record.class].each do |name|
+      @attributes_by_class[record.class].reverse_each do |name|
         value = record.read_attribute_for_database(name)
-        encoded << (value.is_a?(::ActiveModel::Type::Binary::Data) ? value.to_s : value) # TODO...
+        value = value.to_s if value.is_a?(::ActiveModel::Type::Binary::Data) # TODO...
+        encoded << value
       end
     end
 
     def pop_record_state(encoded, record)
-      attributes_hash = encoded_attribute_names(encoded).to_h { |name| [name, encoded.pop] }
+      # names = @attributes_by_class[record.class]
+      # attributes_hash = names.zip(encoded.pop(names.length)).to_h
+      attributes_hash = @attributes_by_class[record.class].to_h { |name| [name, encoded.pop] }
       attributes = record.class.attributes_builder.build_from_database(attributes_hash)
       record.init_with_attributes(attributes, encoded.pop)
     end
 
+
     def push_cached_associations(encoded, record)
-      encoded_association_names(encoded).each do |name|
+      @associations_by_class[record.class].each do |name|
         encoded << if record.association_cached?(name)
           encode(record.association(name).target)
         end
@@ -103,7 +106,7 @@ module ActiveRecord
     end
 
     def pop_cached_associations(encoded, record)
-      names = encoded_association_names(encoded)
+      names = @associations_by_class[record.class]
       names.zip(encoded.pop(names.length)) do |name, target|
         target = decode(target)
         record.association(name).target = target if target
@@ -114,14 +117,6 @@ module ActiveRecord
 
     def encoded_array?(encoded)
       encoded.is_a?(Array) && (encoded.empty? || encoded[0].is_a?(Array))
-    end
-
-    def encoded_attribute_names(encoded_record)
-      @attribute_names_by_id[encoded_record[0]] || encoded_record[1]
-    end
-
-    def encoded_association_names(encoded_record)
-      @association_names_by_id[encoded_record[0]] || encoded_record[2]
     end
   end
 end
