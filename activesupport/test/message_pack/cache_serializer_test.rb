@@ -15,14 +15,6 @@ class MessagePackCacheSerializerTest < ActiveSupport::TestCase
     assert_roundtrip DefinesJsonCreate.new("foo")
   end
 
-  test "returns nil when loading an unregistered object and the class no longer exists" do
-    klass = Class.new(DefinesFromMsgpackExt)
-    def klass.name; "DoesNotActuallyExist"; end
-    dumped_entry = dump(klass.new("foo"))
-
-    assert_nil serializer.load(dumped_entry)
-  end
-
   test "raises error when unable to serialize an unregistered object" do
     assert_raises ActiveSupport::MessagePack::UnserializableObjectError do
       dump(Unserializable.new("foo"))
@@ -36,12 +28,34 @@ class MessagePackCacheSerializerTest < ActiveSupport::TestCase
   end
 
   test "integrates with ActiveSupport::Cache" do
-    Dir.mktmpdir do |dir|
-      cache = ActiveSupport::Cache::FileStore.new(dir, coder: ActiveSupport::MessagePack::CacheSerializer)
+    with_cache do |cache|
       value = DefinesFromMsgpackExt.new("foo")
       cache.write("key", value)
-
       assert_equal value, cache.read("key")
+    end
+  end
+
+  test "treats missing class as a cache miss" do
+    klass = Class.new(DefinesFromMsgpackExt)
+    def klass.name; "DoesNotActuallyExist"; end
+
+    with_cache do |cache|
+      value = klass.new("foo")
+      cache.write("key", value)
+      assert_nil cache.read("key")
+    end
+  end
+
+  test "supports compression" do
+    entry = ActiveSupport::Cache::Entry.new(["foo"] * 100)
+    uncompressed = serializer.dump(entry)
+    compressed = serializer.dump_compressed(entry, 1)
+
+    assert_operator compressed.bytesize, :<, uncompressed.bytesize
+    assert_equal serializer.load(uncompressed).value, serializer.load(compressed).value
+
+    with_cache(compress_threshold: 1) do |cache|
+      assert_equal compressed, cache.send(:serialize_entry, entry)
     end
   end
 
@@ -56,6 +70,12 @@ class MessagePackCacheSerializerTest < ActiveSupport::TestCase
 
     def load(dumped)
       super.value
+    end
+
+    def with_cache(**options, &block)
+      Dir.mktmpdir do |dir|
+        block.call(ActiveSupport::Cache::FileStore.new(dir, coder: serializer, **options))
+      end
     end
 
     class HasValue

@@ -23,6 +23,10 @@ module ActiveRecord
       extend self
 
       def install(serializer)
+        serializer.register_type 119, ActiveModel::Type::Binary::Data,
+          packer: :to_s,
+          unpacker: :new
+
         serializer.register_type 120, ActiveRecord::Base,
           packer: method(:write_record),
           unpacker: method(:read_record),
@@ -67,13 +71,11 @@ module ActiveRecord
       end
 
       def build_entry(record)
-        attributes_hash = record.attributes_for_database
-        attributes_hash.transform_values! do |value|
-          # FIXME Handle this in a better way.
-          value.is_a?(::ActiveModel::Type::Binary::Data) ? value.to_s : value
-        end
-
-        [record.class.name, attributes_hash, record.new_record?]
+        [
+          ActiveSupport::MessagePack::Extensions.dump_class(record.class),
+          record.attributes_for_database,
+          record.new_record?
+        ]
       end
 
       def add_cached_associations(record, entry)
@@ -101,9 +103,9 @@ module ActiveRecord
 
       def build_record(entry)
         class_name, attributes_hash, is_new_record, * = entry
-        record = Object.const_get(class_name).allocate
-        attributes = record.class.attributes_builder.build_from_database(attributes_hash)
-        record.init_with_attributes(attributes, is_new_record)
+        klass = ActiveSupport::MessagePack::Extensions.load_class(class_name)
+        attributes = klass.attributes_builder.build_from_database(attributes_hash)
+        klass.allocate.init_with_attributes(attributes, is_new_record)
       end
 
       def resolve_cached_associations(record, entry)

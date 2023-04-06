@@ -237,15 +237,27 @@ module ActiveSupport
         raise "Invalid format"
       end
 
-      def write_class(klass, packer)
+      def dump_class(klass)
         raise UnserializableObjectError, "Cannot serialize anonymous class" unless klass.name
-        packer.write(klass.name)
+        klass.name
+      end
+
+      def load_class(name)
+        Object.const_get(name)
+      rescue NameError => error
+        if error.name.to_s == name
+          raise MissingClassError, "Missing class: #{name}"
+        else
+          raise
+        end
+      end
+
+      def write_class(klass, packer)
+        packer.write(dump_class(klass))
       end
 
       def read_class(unpacker)
-        Object.const_get(unpacker.read)
-      rescue NameError => error
-        raise MissingClassError, "Missing class: #{error.name}"
+        load_class(unpacker.read)
       end
 
       LOAD_WITH_MSGPACK_EXT = 0
