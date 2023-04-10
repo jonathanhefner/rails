@@ -89,7 +89,7 @@ module ActiveSupport
     prepend Messages::Rotator
 
     cattr_accessor :use_authenticated_message_encryption, instance_accessor: false, default: false
-    cattr_accessor :default_message_encryptor_serializer, instance_accessor: false, default: :marshal
+    cattr_accessor :default_message_encryptor_serializer, instance_accessor: false, default: :marshal # TODO remove
 
     class << self
       def default_cipher # :nodoc:
@@ -137,7 +137,7 @@ module ActiveSupport
     # * <tt>:url_safe</tt> - Whether to encode messages using a URL-safe
     #   encoding. Default is +false+ for backward compatibility.
     def initialize(secret, sign_secret = nil, cipher: nil, digest: nil, serializer: nil, url_safe: false)
-      super(serializer: serializer || @@default_message_encryptor_serializer, url_safe: url_safe)
+      super(serializer: serializer || @@default_message_encryptor_serializer, url_safe: url_safe) # TODO reduce
       @secret = secret
       @cipher = cipher || self.class.default_cipher
       @aead_mode = new_cipher.authenticated?

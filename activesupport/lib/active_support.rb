@@ -53,6 +53,7 @@ module ActiveSupport
   autoload :Notifications
   autoload :Reloader
   autoload :SecureCompareRotator
+  autoload :SerializerWithFallback
 
   eager_autoload do
     autoload :BacktraceCleaner
