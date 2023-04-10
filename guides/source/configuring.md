@@ -74,8 +74,7 @@ Below are the default values associated with each target version. In cases of co
 - [`config.active_record.run_after_transaction_callbacks_in_order_defined`](#config-active-record-run-after-transaction-callbacks-in-order-defined): `true`
 - [`config.active_record.run_commit_callbacks_on_first_saved_instances_in_transaction`](#config-active-record-run-commit-callbacks-on-first-saved-instances-in-transaction): `false`
 - [`config.active_record.sqlite3_adapter_strict_strings_by_default`](#config-active-record-sqlite3-adapter-strict-strings-by-default): `true`
-- [`config.active_support.default_message_encryptor_serializer`](#config-active-support-default-message-encryptor-serializer): `:json`
-- [`config.active_support.default_message_verifier_serializer`](#config-active-support-default-message-verifier-serializer): `:json`
+- [`config.active_support.message_serializer`](#config-active-support-message-serializer): `:json`
 - [`config.active_support.raise_on_invalid_cache_expiration_time`](#config-active-support-raise-on-invalid-cache-expiration-time): `true`
 - [`config.active_support.use_message_serializer_for_metadata`](#config-active-support-use-message-serializer-for-metadata): `true`
 - [`config.add_autoload_paths_to_load_path`](#config-add-autoload-paths-to-load-path): `false`
@@ -2248,6 +2247,46 @@ The default value depends on the `config.load_defaults` target version:
 | (original)            | `false`              |
 | 5.2                   | `true`               |
 
+#### `config.active_support.message_serializer`
+
+Specifies the default serializer used by [`ActiveSupport::MessageEncryptor`][]
+and [`ActiveSupport::MessageVerifier`][] instances. To make migrating between
+serializers easier, the provided serializers include a fallback mechanism to
+support multiple deserialization formats:
+
+| Serializer | Serialize and deserialize | Fallback deserialize |
+| ---------- | ------------------------- | -------------------- |
+| `:marshal` | `Marshal` | `ActiveSupport::JSON` |
+| `:json` | `ActiveSupport::JSON` | |
+| `:json_allow_marshal` | `ActiveSupport::JSON` | `Marshal` |
+
+WARNING: `Marshal` is a potential vector for deserialization attacks in cases
+where a message signing secret has been leaked. _If possible, choose a
+serializer that does not support `Marshal`._
+
+Each of the above serializers will emit a [`message_serializer_fallback.active_support`][]
+event notification when they fall back to an alternate deserialization format,
+allowing you to track how often such fallbacks occur.
+
+Alternatively, you can specify any serializer object that responds to `dump` and
+`load` methods. For example:
+
+```ruby
+config.active_job.message_serializer = YAML
+```
+
+The default value depends on the `config.load_defaults` target version:
+
+| Starting with version | The default value is |
+| --------------------- | -------------------- |
+| (original)            | `:marshal`           |
+| 7.1                   | `:json`              |
+
+[`ActiveSupport::MessageEncryptor`]: https://api.rubyonrails.org/classes/ActiveSupport/MessageEncryptor.html
+[`ActiveSupport::MessageVerifier`]: https://api.rubyonrails.org/classes/ActiveSupport/MessageVerifier.html
+[`message_serializer_fallback.active_support`]: active_support_instrumentation.html#message-serializer-fallback-active-support
+[`msgpack` gem]: https://rubygems.org/gems/msgpack
+
 #### `config.active_support.use_message_serializer_for_metadata`
 
 When `true`, enables a performance optimization that serializes message data and
@@ -2344,48 +2383,6 @@ The default value depends on the `config.load_defaults` target version:
 | --------------------- | -------------------- |
 | (original)            | `false`              |
 | 6.1                   | `true`               |
-
-#### `config.active_support.default_message_encryptor_serializer`
-
-Specifies what serializer the `MessageEncryptor` class will use by default.
-
-Options are `:json`, `:hybrid`, and `:marshal`. `:hybrid` uses the `JsonWithMarshalFallback` class.
-
-The default value depends on the `config.load_defaults` target version:
-
-| Starting with version | The default value is |
-| --------------------- | -------------------- |
-| (original)            | `:marshal`           |
-| 7.1                   | `:json`              |
-
-#### `config.active_support.fallback_to_marshal_deserialization`
-
-Specifies if the `ActiveSupport::JsonWithMarshalFallback` class will fallback to `Marshal` when it encounters a `::JSON::ParserError`.
-
-Defaults to `true`.
-
-#### `config.active_support.use_marshal_serialization`
-
-Specifies if the `ActiveSupport::JsonWithMarshalFallback` class will use `Marshal` to serialize payloads.
-
-If this is set to `false`, it will use `JSON` to serialize payloads.
-
-Used to help migrate apps from `Marshal` to `JSON` as the default serializer for the `MessageEncryptor` class.
-
-Defaults to `true`.
-
-#### `config.active_support.default_message_verifier_serializer`
-
-Specifies what serializer the `MessageVerifier` class will use by default.
-
-Options are `:json`, `:hybrid`, and `:marshal`. `:hybrid` uses the `JsonWithMarshalFallback` class.
-
-The default value depends on the `config.load_defaults` target version:
-
-| Starting with version | The default value is |
-| --------------------- | -------------------- |
-| (original)            | `:marshal`           |
-| 7.1                   | `:json`              |
 
 #### `config.active_support.raise_on_invalid_cache_expiration_time`
 
