@@ -10,7 +10,7 @@ module ActiveSupport
       singleton_class.attr_accessor :default_serializer
       self.default_serializer = :marshal
 
-      def initialize(serializer: Codec.default_serializer, url_safe:)
+      def initialize(serializer: Codec.default_serializer, url_safe: false)
         @serializer =
           if serializer.is_a?(Symbol)
             ActiveSupport::SerializerWithFallback[serializer]

@@ -89,7 +89,9 @@ module ActiveSupport
     prepend Messages::Rotator
 
     cattr_accessor :use_authenticated_message_encryption, instance_accessor: false, default: false
-    cattr_accessor :default_message_encryptor_serializer, instance_accessor: false, default: :marshal # TODO remove
+
+cattr_accessor :default_message_encryptor_serializer, instance_accessor: false, default: :marshal # TODO remove
+
 
     class << self
       def default_cipher # :nodoc:
@@ -136,13 +138,13 @@ module ActiveSupport
     # * <tt>:serializer</tt> - Object serializer to use. Default is +JSON+.
     # * <tt>:url_safe</tt> - Whether to encode messages using a URL-safe
     #   encoding. Default is +false+ for backward compatibility.
-    def initialize(secret, sign_secret = nil, cipher: nil, digest: nil, serializer: nil, url_safe: false)
-      super(serializer: serializer || @@default_message_encryptor_serializer, url_safe: url_safe) # TODO reduce
+    def initialize(secret, sign_secret = nil, cipher: nil, digest: nil, **options)
+      super(**options)
       @secret = secret
       @cipher = cipher || self.class.default_cipher
       @aead_mode = new_cipher.authenticated?
       @verifier = if !@aead_mode
-        MessageVerifier.new(sign_secret || secret, digest: digest || "SHA1", serializer: NullSerializer, url_safe: url_safe)
+        MessageVerifier.new(sign_secret || secret, digest: digest || "SHA1", serializer: NullSerializer, url_safe: options[:url_safe])
       end
     end
 

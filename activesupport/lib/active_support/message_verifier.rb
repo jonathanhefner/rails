@@ -126,11 +126,15 @@ module ActiveSupport
     SEPARATOR = "--" # :nodoc:
     SEPARATOR_LENGTH = SEPARATOR.length # :nodoc:
 
+
     cattr_accessor :default_message_verifier_serializer, instance_accessor: false, default: :marshal
 
-    def initialize(secret, digest: nil, serializer: nil, url_safe: false)
+
+
+
+    def initialize(secret, digest: nil, **options)
       raise ArgumentError, "Secret should not be nil." unless secret
-      super(serializer: serializer || @@default_message_verifier_serializer, url_safe: url_safe)
+      super(**options)
       @secret = secret
       @digest = digest&.to_s || "SHA1"
     end
