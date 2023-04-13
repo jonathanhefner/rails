@@ -78,35 +78,18 @@
 # Options are `:legacy` and `:sqlcommenter`.
 # Rails.application.config.active_record.query_log_tags_format = :sqlcommenter
 
-# Specify the serializer used by `MessageEncryptor` by default.
-# Options are `:json`, `:hybrid`, and `:marshal`.
+# Specify the default serializer used by `MessageEncryptor` and `MessageVerifier`
+# instances. The legacy default is `:marshal`, and new apps will `:json`. You
+# can also choose `:message_pack` for additional performance if you add the
+# `msgpack` gem to your Gemfile.
 #
-# New apps by default will use `:json`.
-#
-# Rails.application.config.active_support.default_message_encryptor_serializer = :json
-#
-# However, if you are upgrading an app, you will likely want to start with
-# `:hybrid`. If you switch to `:json` before existing messages have expired or
-# been converted, those messages will no longer be readable.
-#
-# Rails.application.config.active_support.default_message_encryptor_serializer = :hybrid
-#
-# For detailed migration steps, check out https://guides.rubyonrails.org/v7.1/upgrading_ruby_on_rails.html#new-activesupport-messageencryptor-default-serializer
-
-# Specify the serializer used by `MessageVerifier` by default.
-# Options are `:json`, `:hybrid`, and `:marshal`.
-#
-# New apps by default will use `:json`.
-#
-# Rails.application.config.active_support.default_message_verifier_serializer = :json
-#
-# However, if you are upgrading an app, you will likely want to start with
-# `:hybrid`. If you switch to `:json` before existing messages have expired or
-# been converted, those messages will no longer be readable.
-#
-# Rails.application.config.active_support.default_message_verifier_serializer = :hybrid
-#
-# For detailed migration steps, check out https://guides.rubyonrails.org/v7.1/upgrading_ruby_on_rails.html#new-activesupport-messageverifier-default-serializer
+# Each serializer is able to read messages produced by the other serializers, so
+# old messages can still be read. However, if you are performing a rolling
+# deploy of a Rails 7.1 upgrade, wherein servers that have not yet been upgraded
+# must be able to read messages from upgraded servers, you will want to first
+# deploy without setting this option (i.e. default to `:marshal`), then set the
+# option in a subsequent deploy.
+# Rails.application.config.active_support.message_serializer = :json
 
 # Enable a performance optimization that serializes message data and metadata
 # together. This changes the message format, so messages serialized this way

@@ -6,7 +6,7 @@ module MessageCodecTests
   extend ActiveSupport::Concern
 
   included do
-    test "Codec::default_serializer determines the default serializer" do
+    test "::default_serializer determines the default serializer" do
       ActiveSupport::Messages::Codec.with(default_serializer: ::Marshal) do
         assert_serializer ::Marshal, make_codec
       end

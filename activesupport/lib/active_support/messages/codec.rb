@@ -7,10 +7,10 @@ module ActiveSupport
     class Codec # :nodoc:
       include Metadata
 
-      singleton_class.attr_accessor :default_serializer
-      self.default_serializer = :marshal
+      class_attribute :default_serializer, default: :marshal,
+        instance_accessor: false, instance_predicate: false
 
-      def initialize(serializer: Codec.default_serializer, url_safe: false)
+      def initialize(serializer: self.class.default_serializer, url_safe: false)
         @serializer =
           if serializer.is_a?(Symbol)
             ActiveSupport::SerializerWithFallback[serializer]

@@ -126,12 +126,6 @@ module ActiveSupport
     SEPARATOR = "--" # :nodoc:
     SEPARATOR_LENGTH = SEPARATOR.length # :nodoc:
 
-
-    cattr_accessor :default_message_verifier_serializer, instance_accessor: false, default: :marshal
-
-
-
-
     def initialize(secret, digest: nil, **options)
       raise ArgumentError, "Secret should not be nil." unless secret
       super(**options)
