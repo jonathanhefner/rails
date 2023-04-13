@@ -90,9 +90,6 @@ module ActiveSupport
 
     cattr_accessor :use_authenticated_message_encryption, instance_accessor: false, default: false
 
-cattr_accessor :default_message_encryptor_serializer, instance_accessor: false, default: :marshal # TODO remove
-
-
     class << self
       def default_cipher # :nodoc:
         if use_authenticated_message_encryption
