@@ -3,11 +3,6 @@
 module ActiveSupport
   module SerializerWithFallback # :nodoc:
     def self.[](name)
-      # TODO remove
-      if name == :hybrid
-        name = JsonWithMarshalFallback.use_marshal_serialization ? :marshal : :json
-      end
-
       case name
       when :marshal
         MarshalWithFallback

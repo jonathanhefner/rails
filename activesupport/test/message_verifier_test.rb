@@ -4,8 +4,11 @@ require_relative "abstract_unit"
 require "openssl"
 require "active_support/time"
 require "active_support/json"
+require_relative "messages/message_codec_tests"
 
 class MessageVerifierTest < ActiveSupport::TestCase
+  include MessageCodecTests
+
   class JSONSerializer
     def dump(value)
       ActiveSupport::JSON.encode(value)
@@ -105,4 +108,9 @@ class MessageVerifierTest < ActiveSupport::TestCase
     end
     assert_equal "Secret should not be nil.", exception.message
   end
+
+  private
+    def make_codec(**options)
+      ActiveSupport::MessageVerifier.new(@secret, **options)
+    end
 end
