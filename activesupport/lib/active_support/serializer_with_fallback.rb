@@ -9,7 +9,7 @@ module ActiveSupport
       when :json
         JsonWithFallback
       when :message_pack
-        require "active_support/message_pack"
+        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
         MessagePackWithFallback
       else
         raise "TODO invalid format: #{name.inspect}"
@@ -90,7 +90,7 @@ module ActiveSupport
 
       def available?
         return @available if defined?(@available)
-        require "active_support/message_pack"
+        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
         @available = true
       rescue LoadError
         @available = false
