@@ -79,21 +79,24 @@
 # Rails.application.config.active_record.query_log_tags_format = :sqlcommenter
 
 # Specify the default serializer used by `MessageEncryptor` and `MessageVerifier`
-# instances. The legacy default is `:marshal`, and new apps use `:json`. You can
-# also choose `:message_pack` for additional performance if you add the `msgpack`
-# gem to your Gemfile.
+# instances. The legacy default is `:marshal`, which is a potential vector for
+# deserialization attacks in cases where a message signing secret has been
+# leaked. New apps use `:json`. You can also choose `:message_pack` for improved
+# performance if you add the `msgpack` gem to your Gemfile.
 #
-# When `config.active_support.message_serializer_marshal_fallback` (see further
-# below) is true, each of these serializers is able to read messages produced by
-# the other serializers, so old messages can still be read. However, if you are
-# performing a rolling deploy of a Rails 7.1 upgrade, wherein servers that have
-# not yet been upgraded must be able to read messages from upgraded servers, you
-# should first deploy without setting `message_serializer` (i.e. default to
-# `:marshal`), then set the option in a subsequent deploy.
+# To make transitioning easier, two additional variants are provided:
+# `:json_allow_marshal` and `:message_pack_allow_marshal`. These variants will
+# serialize and deserialize their respective formats, but will also fall back
+# to deserializing with `Marshal` if necessary. When they fall back, they will
+# emit a `message_serializer_fallback.active_support` notification event so that
+# you can judge the appropriate time to switch to a non-fallback variant.
+#
+# If you are performing a rolling deploy of a Rails 7.1 upgrade, wherein servers
+# that have not yet been upgraded must be able to read messages from upgraded
+# servers, you should first deploy without setting this option (i.e. default to
+# `:marshal`), then set the option to one of the transitional variants in a
+# subsequent deploy.
 # Rails.application.config.active_support.message_serializer = :json
-
-##### TODO
-# Rails.application.config.active_support.message_serializer_marshal_fallback = false
 
 # Enable a performance optimization that serializes message data and metadata
 # together. This changes the message format, so messages serialized this way
