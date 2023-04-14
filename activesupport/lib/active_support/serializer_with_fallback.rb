@@ -10,9 +10,14 @@ module ActiveSupport
         MarshalWithFallback
       when :json
         JsonWithFallback
+      when :json_allow_marshal
+        JsonWithFallbackAllowMarshal
       when :message_pack
-        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
+        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack) # TODO
         MessagePackWithFallback
+      when :message_pack_allow_marshal
+        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack) # TODO
+        MessagePackWithFallbackAllowMarshal
       else
         raise "TODO invalid format: #{format.inspect}"
       end
@@ -37,13 +42,13 @@ module ActiveSupport
     end
 
     def marshal_load(dumped)
-      if SerializerWithFallback.marshal_fallback
-        if SerializerWithFallback.marshal_fallback == :log && defined?(Rails.logger)
-          Rails.logger.warn("TODO Marshal load fallback occurred")
-        end
+      raise "TODO Marshal load fallback disabled"
+    end
+
+    module AllowMarshal
+      def marshal_load(dumped)
+        Rails.logger.warn("TODO Marshal load fallback occurred") if defined?(Rails.logger)
         MarshalWithFallback._load(dumped)
-      else
-        raise "TODO Marshal load fallback disabled"
       end
     end
 
@@ -87,6 +92,12 @@ module ActiveSupport
       end
     end
 
+    module JsonWithFallbackAllowMarshal
+      include JsonWithFallback
+      include AllowMarshal
+      extend self
+    end
+
     module MessagePackWithFallback
       include SerializerWithFallback
       extend self
@@ -103,13 +114,20 @@ module ActiveSupport
         available? && ActiveSupport::MessagePack.signature?(dumped)
       end
 
-      def available?
-        return @available if defined?(@available)
-        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
-        @available = true
-      rescue LoadError
-        @available = false
-      end
+      private
+        def available?
+          return @available if defined?(@available)
+          require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
+          @available = true
+        rescue LoadError
+          @available = false
+        end
+    end
+
+    module MessagePackWithFallbackAllowMarshal
+      include MessagePackWithFallback
+      include AllowMarshal
+      extend self
     end
   end
 end
