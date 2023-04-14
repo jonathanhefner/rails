@@ -2,25 +2,12 @@
 
 module ActiveSupport
   module SerializerWithFallback # :nodoc:
-    singleton_class.attr_accessor :marshal_fallback
-
     def self.[](format)
-      case format
-      when :marshal
-        MarshalWithFallback
-      when :json
-        JsonWithFallback
-      when :json_allow_marshal
-        JsonWithFallbackAllowMarshal
-      when :message_pack
-        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack) # TODO
-        MessagePackWithFallback
-      when :message_pack_allow_marshal
-        require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack) # TODO
-        MessagePackWithFallbackAllowMarshal
-      else
-        raise "TODO invalid format: #{format.inspect}"
+      if format.match?("message_pack") && !defined?(ActiveSupport::MessagePack)
+        require "active_support/message_pack"
       end
+
+      SERIALIZERS.fetch(format)
     end
 
     def load(dumped)
@@ -117,7 +104,7 @@ module ActiveSupport
       private
         def available?
           return @available if defined?(@available)
-          require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
+          require "active_support/message_pack"
           @available = true
         rescue LoadError
           @available = false
@@ -129,5 +116,13 @@ module ActiveSupport
       include AllowMarshal
       extend self
     end
+
+    SERIALIZERS = {
+      marshal: MarshalWithFallback,
+      json: JsonWithFallback,
+      json_allow_marshal: JsonWithFallbackAllowMarshal,
+      message_pack: MessagePackWithFallback,
+      message_pack_allow_marshal: MessagePackWithFallbackAllowMarshal,
+    }
   end
 end

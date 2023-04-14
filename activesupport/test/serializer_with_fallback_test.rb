@@ -2,6 +2,7 @@
 
 require_relative "abstract_unit"
 require "json"
+require "stringio"
 
 class SerializerWithFallbackTest < ActiveSupport::TestCase
   test ":marshal serializer dumps objects using Marshal format" do
@@ -40,14 +41,24 @@ class SerializerWithFallbackTest < ActiveSupport::TestCase
     end
   end
 
-  test "logs when falling back to Marshal format" do
+  test "logs when serializer falls back to loading Marshal format" do
+    FORMATS.grep(/_allow_marshal/) do |loading|
+      out = StringIO.new
+      with_rails_logger(Logger.new(out)) do
+        assert_roundtrip serializer(:marshal), serializer(loading)
+        assert_match "TODO", out.string
+      end
+    end
   end
 
   test "raises on invalid format name" do
+    assert_raises KeyError do
+      ActiveSupport::SerializerWithFallback[:invalid_format]
+    end
   end
 
   private
-    FORMATS = [:marshal, :json, :json_allow_marshal, :message_pack, :message_pack_allow_marshal]
+    FORMATS = ActiveSupport::SerializerWithFallback::SERIALIZERS.keys
 
     def serializer(format)
       ActiveSupport::SerializerWithFallback[format]
@@ -56,5 +67,14 @@ class SerializerWithFallbackTest < ActiveSupport::TestCase
     def assert_roundtrip(serializer, deserializer = serializer)
       value = [{ "a_boolean" => false, "a_number" => 123 }]
       assert_equal value, deserializer.load(serializer.dump(value))
+    end
+
+    module ::Rails; end # Ensure existence for stubbing.
+
+    def with_rails_logger(logger)
+      stub = Module.new { define_singleton_method(:logger) { logger } }
+      stub_const Object, :Rails, stub do
+        yield logger
+      end
     end
 end
