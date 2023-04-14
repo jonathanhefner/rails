@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "active_support/core_ext/object/with"
 
 module MessageCodecTests
@@ -16,15 +17,9 @@ module MessageCodecTests
       end
     end
 
-    test ":serializer option resolves symbols as SerializerWithFallback serializers" do
-      serializers = {
-        marshal: ActiveSupport::SerializerWithFallback::MarshalWithFallback,
-        json: ActiveSupport::SerializerWithFallback::JsonWithFallback,
-        message_pack: ActiveSupport::SerializerWithFallback::MessagePackWithFallback,
-      }
-
-      serializers.each do |symbol, serializer|
-        assert_serializer serializer, make_codec(serializer: symbol)
+    test ":serializer option resolves symbols via SerializerWithFallback" do
+      [:marshal, :json, :message_pack].each do |symbol|
+        assert_serializer ActiveSupport::SerializerWithFallback[symbol], make_codec(serializer: symbol)
       end
     end
 

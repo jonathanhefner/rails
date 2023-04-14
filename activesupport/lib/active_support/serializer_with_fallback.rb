@@ -2,8 +2,10 @@
 
 module ActiveSupport
   module SerializerWithFallback # :nodoc:
-    def self.[](name)
-      case name
+    singleton_class.attr_accessor :marshal_fallback
+
+    def self.[](format)
+      case format
       when :marshal
         MarshalWithFallback
       when :json
@@ -12,7 +14,7 @@ module ActiveSupport
         require "active_support/message_pack" unless defined?(ActiveSupport::MessagePack)
         MessagePackWithFallback
       else
-        raise "TODO invalid format: #{name.inspect}"
+        raise "TODO invalid format: #{format.inspect}"
       end
     end
 
@@ -21,7 +23,7 @@ module ActiveSupport
       when MessagePackWithFallback.dumped?(dumped)
         MessagePackWithFallback._load(dumped)
       when MarshalWithFallback.dumped?(dumped)
-        MarshalWithFallback._load(dumped)
+        marshal_load(dumped)
       when JsonWithFallback.dumped?(dumped)
         JsonWithFallback._load(dumped)
       else
@@ -31,6 +33,17 @@ module ActiveSupport
         rescue ::JSON::ParserError
           raise "TODO invalid dump: #{dumped.inspect}"
         end
+      end
+    end
+
+    def marshal_load(dumped)
+      if SerializerWithFallback.marshal_fallback
+        if SerializerWithFallback.marshal_fallback == :log && defined?(Rails.logger)
+          Rails.logger.warn("TODO Marshal load fallback occurred")
+        end
+        MarshalWithFallback._load(dumped)
+      else
+        raise "TODO Marshal load fallback disabled"
       end
     end
 
@@ -45,6 +58,8 @@ module ActiveSupport
       def _load(dumped)
         ::Marshal.load(dumped)
       end
+
+      alias :marshal_load :_load
 
       MARSHAL_SIGNATURE = "\x04\x08"
 

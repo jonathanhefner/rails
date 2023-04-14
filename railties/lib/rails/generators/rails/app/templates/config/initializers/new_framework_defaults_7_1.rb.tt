@@ -79,17 +79,21 @@
 # Rails.application.config.active_record.query_log_tags_format = :sqlcommenter
 
 # Specify the default serializer used by `MessageEncryptor` and `MessageVerifier`
-# instances. The legacy default is `:marshal`, and new apps will `:json`. You
-# can also choose `:message_pack` for additional performance if you add the
-# `msgpack` gem to your Gemfile.
+# instances. The legacy default is `:marshal`, and new apps use `:json`. You can
+# also choose `:message_pack` for additional performance if you add the `msgpack`
+# gem to your Gemfile.
 #
-# Each of these serializers is able to read messages produced by the other
-# serializers, so old messages can still be read. However, if you are performing
-# a rolling deploy of a Rails 7.1 upgrade, wherein servers that have not yet
-# been upgraded must be able to read messages from upgraded servers, you should
-# first deploy without setting this option (i.e. default to `:marshal`), then
-# set the option in a subsequent deploy.
+# When `config.active_support.message_serializer_marshal_fallback` (see further
+# below) is true, each of these serializers is able to read messages produced by
+# the other serializers, so old messages can still be read. However, if you are
+# performing a rolling deploy of a Rails 7.1 upgrade, wherein servers that have
+# not yet been upgraded must be able to read messages from upgraded servers, you
+# should first deploy without setting `message_serializer` (i.e. default to
+# `:marshal`), then set the option in a subsequent deploy.
 # Rails.application.config.active_support.message_serializer = :json
+
+##### TODO
+# Rails.application.config.active_support.message_serializer_marshal_fallback = false
 
 # Enable a performance optimization that serializes message data and metadata
 # together. This changes the message format, so messages serialized this way
