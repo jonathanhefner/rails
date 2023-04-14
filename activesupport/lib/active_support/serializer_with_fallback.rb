@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_support/notifications"
+
 module ActiveSupport
   module SerializerWithFallback # :nodoc:
     def self.[](format)
@@ -34,8 +36,10 @@ module ActiveSupport
 
     module AllowMarshal
       def marshal_load(dumped)
-        Rails.logger.warn("TODO Marshal load fallback occurred") if defined?(Rails.logger)
-        MarshalWithFallback._load(dumped)
+        payload = { serializer: SERIALIZERS.key(self), fallback: :marshal }
+        ActiveSupport::Notifications.instrument("message_serializer_fallback.active_support", payload) do
+          MarshalWithFallback._load(dumped)
+        end
       end
     end
 
