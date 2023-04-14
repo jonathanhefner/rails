@@ -5,7 +5,7 @@ require "active_support/notifications"
 module ActiveSupport
   module SerializerWithFallback # :nodoc:
     def self.[](format)
-      if format.match?("message_pack") && !defined?(ActiveSupport::MessagePack)
+      if format.match?(/message_pack/) && !defined?(ActiveSupport::MessagePack)
         require "active_support/message_pack"
       end
 
