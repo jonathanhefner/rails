@@ -41,6 +41,8 @@ class SerializerWithFallbackTest < ActiveSupport::TestCase
   end
 
   test "notifies when serializer falls back to loading Marshal format" do
+    value = ["foo"]
+    dumped = serializer(:marshal).dump(value)
     notifying_formats = FORMATS.grep(/_allow_marshal/)
     assert_not_empty notifying_formats
 
@@ -48,12 +50,16 @@ class SerializerWithFallbackTest < ActiveSupport::TestCase
     callback = -> (*args) { payloads << args.extract_options! }
     ActiveSupport::Notifications.subscribed(callback, "message_serializer_fallback.active_support") do
       notifying_formats.each do |notifying|
-        assert_roundtrip serializer(:marshal), serializer(notifying)
+        serializer(notifying).load(dumped)
       end
     end
 
     assert_equal notifying_formats, payloads.map { |payload| payload[:serializer] }
-    payloads.each { |payload| assert_equal :marshal, payload[:fallback] }
+    payloads.each do |payload|
+      assert_equal :marshal, payload[:fallback]
+      assert_equal dumped, payload[:message]
+      assert_equal value, payload[:value]
+    end
   end
 
   test "raises on invalid format name" do

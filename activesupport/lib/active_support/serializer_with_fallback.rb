@@ -36,9 +36,9 @@ module ActiveSupport
 
     module AllowMarshal
       def marshal_load(dumped)
-        payload = { serializer: SERIALIZERS.key(self), fallback: :marshal }
+        payload = { serializer: SERIALIZERS.key(self), fallback: :marshal, message: dumped }
         ActiveSupport::Notifications.instrument("message_serializer_fallback.active_support", payload) do
-          MarshalWithFallback._load(dumped)
+          payload[:value] = MarshalWithFallback._load(dumped)
         end
       end
     end
