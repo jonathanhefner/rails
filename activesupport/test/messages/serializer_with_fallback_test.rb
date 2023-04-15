@@ -1,16 +1,15 @@
 # frozen_string_literal: true
 
 require_relative "../abstract_unit"
-require "json"
 
 class MessagesSerializerWithFallbackTest < ActiveSupport::TestCase
   test ":marshal serializer dumps objects using Marshal format" do
-    assert_roundtrip serializer(:marshal), ::Marshal
+    assert_roundtrip serializer(:marshal), Marshal
   end
 
   test ":json serializer dumps objects using JSON format" do
-    assert_roundtrip serializer(:json), ::JSON
-    assert_roundtrip serializer(:json_allow_marshal), ::JSON
+    assert_roundtrip serializer(:json), ActiveSupport::JSON
+    assert_roundtrip serializer(:json_allow_marshal), ActiveSupport::JSON
   end
 
   test ":message_pack serializer dumps objects using MessagePack format" do
@@ -26,6 +25,7 @@ class MessagesSerializerWithFallbackTest < ActiveSupport::TestCase
 
   test "only :marshal and :*_allow_marshal serializers can load Marshal format" do
     marshal_loading_formats = FORMATS.grep(/(?:\A|_allow_)marshal/)
+    assert_operator marshal_loading_formats.length, :>, 1
 
     marshal_loading_formats.each do |loading|
       assert_roundtrip serializer(:marshal), serializer(loading)
@@ -34,13 +34,20 @@ class MessagesSerializerWithFallbackTest < ActiveSupport::TestCase
     marshalled = serializer(:marshal).dump({})
 
     (FORMATS - marshal_loading_formats).each do |loading|
-      assert_raises(match: /TODO/) do
+      assert_raises(match: /unsupported/i) do
         serializer(loading).load(marshalled)
       end
     end
   end
 
-  test "notifies when serializer falls back to loading a different format" do
+  test ":json serializer can load irregular JSON strings" do
+    value = { "foo" => "bar" }
+    dumped = serializer(:json).dump(value)
+
+    assert_equal value, serializer(:json).load(" /* comment */ #{dumped}")
+  end
+
+  test "notifies when serializer falls back to loading an alternate format" do
     value = { "foo" => "bar" }
     dumped = serializer(:json).dump(value)
 

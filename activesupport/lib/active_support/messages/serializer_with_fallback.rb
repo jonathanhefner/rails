@@ -24,7 +24,7 @@ module ActiveSupport
             payload[:deserialized] = SERIALIZERS[format]._load(dumped)
           end
         else
-          raise "TODO invalid dump"
+          raise "Unsupported serialization format"
         end
       end
 
