@@ -19,7 +19,7 @@ module MessageCodecTests
 
     test ":serializer option resolves symbols via SerializerWithFallback" do
       [:marshal, :json, :json_allow_marshal].each do |symbol|
-        assert_serializer ActiveSupport::SerializerWithFallback[symbol], make_codec(serializer: symbol)
+        assert_serializer ActiveSupport::Messages::SerializerWithFallback[symbol], make_codec(serializer: symbol)
       end
     end
   end

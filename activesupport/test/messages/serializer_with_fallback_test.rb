@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "abstract_unit"
+require_relative "../abstract_unit"
 require "json"
 
-class SerializerWithFallbackTest < ActiveSupport::TestCase
+class MessagesSerializerWithFallbackTest < ActiveSupport::TestCase
   test ":marshal serializer dumps objects using Marshal format" do
     assert_roundtrip serializer(:marshal), ::Marshal
   end
@@ -59,15 +59,15 @@ class SerializerWithFallbackTest < ActiveSupport::TestCase
 
   test "raises on invalid format name" do
     assert_raises KeyError do
-      ActiveSupport::SerializerWithFallback[:invalid_format]
+      ActiveSupport::Messages::SerializerWithFallback[:invalid_format]
     end
   end
 
   private
-    FORMATS = ActiveSupport::SerializerWithFallback::SERIALIZERS.keys
+    FORMATS = ActiveSupport::Messages::SerializerWithFallback::SERIALIZERS.keys
 
     def serializer(format)
-      ActiveSupport::SerializerWithFallback[format]
+      ActiveSupport::Messages::SerializerWithFallback[format]
     end
 
     def assert_roundtrip(serializer, deserializer = serializer)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require "active_support/messages/metadata"
+require_relative "metadata"
+require_relative "serializer_with_fallback"
 
 module ActiveSupport
   module Messages # :nodoc:
@@ -11,13 +12,7 @@ module ActiveSupport
         instance_accessor: false, instance_predicate: false
 
       def initialize(serializer: self.class.default_serializer, url_safe: false)
-        @serializer =
-          if serializer.is_a?(Symbol)
-            ActiveSupport::SerializerWithFallback[serializer]
-          else
-            serializer
-          end
-
+        @serializer = serializer.is_a?(Symbol) ? SerializerWithFallback[serializer] : serializer
         @url_safe = url_safe
       end
 
