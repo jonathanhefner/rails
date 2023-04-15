@@ -87,9 +87,8 @@
 # To make transitioning easier, two additional variants are provided:
 # `:json_allow_marshal` and `:message_pack_allow_marshal`. These variants will
 # serialize and deserialize their respective formats, but will also fall back
-# to deserializing with `Marshal` if necessary. When they fall back, they will
-# emit a `message_serializer_fallback.active_support` notification event so that
-# you can judge the appropriate time to switch to a non-fallback variant.
+# to deserializing with `Marshal` if necessary. For more information, see
+# https://guides.rubyonrails.org/v7.1/configuring.html#config-active-support-message-serializer
 #
 # If you are performing a rolling deploy of a Rails 7.1 upgrade, wherein servers
 # that have not yet been upgraded must be able to read messages from upgraded
