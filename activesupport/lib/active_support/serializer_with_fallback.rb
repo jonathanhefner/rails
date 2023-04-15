@@ -13,120 +13,143 @@ module ActiveSupport
     end
 
     def load(dumped)
-      case
-      when MessagePackWithFallback.dumped?(dumped)
-        MessagePackWithFallback._load(dumped)
-      when MarshalWithFallback.dumped?(dumped)
-        marshal_load(dumped)
-      when JsonWithFallback.dumped?(dumped)
-        JsonWithFallback._load(dumped)
-      else
-        # Try JSON in case the JSON regexp produced a false negative.
-        begin
-          JsonWithFallback._load(dumped)
-        rescue ::JSON::ParserError
-          raise "TODO invalid dump: #{dumped.inspect}"
-        end
-      end
-    end
+      format = detect_format(dumped)
 
-    def marshal_load(dumped)
-      raise "TODO Marshal load fallback disabled"
-    end
-
-    module AllowMarshal
-      def marshal_load(dumped)
-        payload = { serializer: SERIALIZERS.key(self), fallback: :marshal, message: dumped }
+      if format == self.format
+        _load(dumped)
+      elsif format && fallback?(format)
+        payload = { serializer: SERIALIZERS.key(self), fallback: format, serialized: dumped }
         ActiveSupport::Notifications.instrument("message_serializer_fallback.active_support", payload) do
-          payload[:value] = MarshalWithFallback._load(dumped)
+          payload[:deserialized] = SERIALIZERS[format]._load(dumped)
+        end
+      else
+        raise "TODO invalid dump"
+      end
+    end
+
+    private
+      def detect_format(dumped)
+        case
+        when MessagePackWithFallback.dumped?(dumped)
+          :message_pack
+        when MarshalWithFallback.dumped?(dumped)
+          :marshal
+        when JsonWithFallback.dumped?(dumped)
+          :json
         end
       end
-    end
 
-    module MarshalWithFallback
-      include SerializerWithFallback
-      extend self
-
-      def dump(object)
-        ::Marshal.dump(object)
+      def fallback?(format)
+        format != :marshal
       end
 
-      def _load(dumped)
-        ::Marshal.load(dumped)
+      module AllowMarshal
+        private
+          def fallback?(format)
+            super || format == :marshal
+          end
       end
 
-      alias :marshal_load :_load
+      module MarshalWithFallback
+        include SerializerWithFallback
+        extend self
 
-      MARSHAL_SIGNATURE = "\x04\x08"
-
-      def dumped?(dumped)
-        dumped.start_with?(MARSHAL_SIGNATURE)
-      end
-    end
-
-    module JsonWithFallback
-      include SerializerWithFallback
-      extend self
-
-      def dump(object)
-        ActiveSupport::JSON.encode(object)
-      end
-
-      def _load(dumped)
-        ActiveSupport::JSON.decode(dumped)
-      end
-
-      JSON_START_WITH = /\A(?:[{\["]|-?\d|true|false)/
-
-      def dumped?(dumped)
-        JSON_START_WITH.match?(dumped)
-      end
-    end
-
-    module JsonWithFallbackAllowMarshal
-      include JsonWithFallback
-      include AllowMarshal
-      extend self
-    end
-
-    module MessagePackWithFallback
-      include SerializerWithFallback
-      extend self
-
-      def dump(object)
-        ActiveSupport::MessagePack.dump(object)
-      end
-
-      def _load(dumped)
-        ActiveSupport::MessagePack.load(dumped)
-      end
-
-      def dumped?(dumped)
-        available? && ActiveSupport::MessagePack.signature?(dumped)
-      end
-
-      private
-        def available?
-          return @available if defined?(@available)
-          require "active_support/message_pack"
-          @available = true
-        rescue LoadError
-          @available = false
+        def format
+          :marshal
         end
-    end
 
-    module MessagePackWithFallbackAllowMarshal
-      include MessagePackWithFallback
-      include AllowMarshal
-      extend self
-    end
+        def dump(object)
+          ::Marshal.dump(object)
+        end
 
-    SERIALIZERS = {
-      marshal: MarshalWithFallback,
-      json: JsonWithFallback,
-      json_allow_marshal: JsonWithFallbackAllowMarshal,
-      message_pack: MessagePackWithFallback,
-      message_pack_allow_marshal: MessagePackWithFallbackAllowMarshal,
-    }
+        def _load(dumped)
+          ::Marshal.load(dumped)
+        end
+
+        MARSHAL_SIGNATURE = "\x04\x08"
+
+        def dumped?(dumped)
+          dumped.start_with?(MARSHAL_SIGNATURE)
+        end
+      end
+
+      module JsonWithFallback
+        include SerializerWithFallback
+        extend self
+
+        def format
+          :json
+        end
+
+        def dump(object)
+          ActiveSupport::JSON.encode(object)
+        end
+
+        def _load(dumped)
+          ActiveSupport::JSON.decode(dumped)
+        end
+
+        JSON_START_WITH = /\A(?:[{\["]|-?\d|true|false)/
+
+        def dumped?(dumped)
+          JSON_START_WITH.match?(dumped)
+        end
+
+        private
+          def detect_format(dumped)
+            # Assume JSON format if format could not be determined.
+            super || :json
+          end
+      end
+
+      module JsonWithFallbackAllowMarshal
+        include JsonWithFallback
+        include AllowMarshal
+        extend self
+      end
+
+      module MessagePackWithFallback
+        include SerializerWithFallback
+        extend self
+
+        def format
+          :message_pack
+        end
+
+        def dump(object)
+          ActiveSupport::MessagePack.dump(object)
+        end
+
+        def _load(dumped)
+          ActiveSupport::MessagePack.load(dumped)
+        end
+
+        def dumped?(dumped)
+          available? && ActiveSupport::MessagePack.signature?(dumped)
+        end
+
+        private
+          def available?
+            return @available if defined?(@available)
+            require "active_support/message_pack"
+            @available = true
+          rescue LoadError
+            @available = false
+          end
+      end
+
+      module MessagePackWithFallbackAllowMarshal
+        include MessagePackWithFallback
+        include AllowMarshal
+        extend self
+      end
+
+      SERIALIZERS = {
+        marshal: MarshalWithFallback,
+        json: JsonWithFallback,
+        json_allow_marshal: JsonWithFallbackAllowMarshal,
+        message_pack: MessagePackWithFallback,
+        message_pack_allow_marshal: MessagePackWithFallbackAllowMarshal,
+      }
   end
 end
