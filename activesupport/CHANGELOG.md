@@ -1,3 +1,16 @@
+*   `MessageEncryptor`, `MessageVerifier`, and `config.active_support.message_serializer`
+    now accept `:message_pack` and `:message_pack_allow_marshal` as serializers.
+    These serializers provide improved performance, but require the
+    [`msgpack` gem](https://rubygems.org/gems/msgpack) (>= 1.7.0).
+
+    The `:message_pack` serializer can fall back to deserializing with
+    `ActiveSupport::JSON` when necessary, and the `:message_pack_allow_marshal`
+    serializer can fall back to deserializing with `Marshal` as well as
+    `ActiveSupport::JSON`. This behavior ensures old messages can still be read
+    so that migration is easier.
+
+    *Jonathan Hefner*
+
 *   Deprecate usage of the singleton `ActiveSupport::Deprecation`.
 
     All usage of `ActiveSupport::Deprecation` as a singleton is deprecated, the most common one being

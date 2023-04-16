@@ -20,8 +20,8 @@ module ActiveSupport
       TIMESTAMP_SERIALIZERS = []
 
       ActiveSupport.on_load(:message_pack) do
-        ENVELOPE_SERIALIZERS.unshift ActiveSupport::MessagePack
-        TIMESTAMP_SERIALIZERS.unshift ActiveSupport::MessagePack
+        ENVELOPE_SERIALIZERS.unshift(SerializerWithFallback[:message_pack], ActiveSupport::MessagePack)
+        TIMESTAMP_SERIALIZERS.unshift(SerializerWithFallback[:message_pack], ActiveSupport::MessagePack)
       end
 
       private

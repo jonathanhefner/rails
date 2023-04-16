@@ -113,18 +113,22 @@ module ActiveSupport
     #   The serializer used to serialize message data. You can specify any
     #   object that responds to +dump+ and +load+, or you can choose from
     #   several preconfigured serializers: +:marshal+, +:json_allow_marshal+,
-    #   +:json+.
+    #   +:message_pack_allow_marshal+, +:json+, +:message_pack+.
     #
     #   The preconfigured serializers include a fallback mechanism to support
     #   multiple deserialization formats. For example, the +:marshal+ serializer
-    #   will serialize using +Marshal+, but can deserialize using +Marshal+ or
-    #   ActiveSupport::JSON. This makes it easy to migrate between serializers.
+    #   will serialize using +Marshal+, but can deserialize using +Marshal+,
+    #   ActiveSupport::JSON, or ActiveSupport::MessagePack. This makes it easy
+    #   to migrate between serializers.
     #
-    #   The +:marshal+ and +:json_allow_marshal+ serializers support
-    #   deserializing using +Marshal+, but :+json+ does not. Beware that
-    #   +Marshal+ is a potential vector for deserialization attacks in cases
-    #   where a message signing secret has been leaked. <em>If possible, choose
-    #   a serializer that does not support +Marshal+.</em>
+    #   The +:marshal+, +:json_allow_marshal+, and +:message_pack_allow_marshal+
+    #   serializers support deserializing using +Marshal+, but the others do
+    #   not. Beware that +Marshal+ is a potential vector for deserialization
+    #   attacks in cases where a message signing secret has been leaked. <em>If
+    #   possible, choose a serializer that does not support +Marshal+.</em>
+    #
+    #   The +:message_pack_allow_marshal+ and +:message_pack+ serializers
+    #   provide improved performance, but require the +msgpack+ gem (>= 1.7.0).
     #
     #   When using \Rails with <tt>config.load_defaults 7.1</tt> or later, the
     #   default is +:json+. Otherwise, the default is +:marshal+.

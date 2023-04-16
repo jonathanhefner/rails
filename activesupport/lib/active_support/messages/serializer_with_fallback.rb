@@ -6,6 +6,10 @@ module ActiveSupport
   module Messages # :nodoc:
     module SerializerWithFallback # :nodoc:
       def self.[](format)
+        if format.match?(/message_pack/) && !defined?(ActiveSupport::MessagePack)
+          require "active_support/message_pack"
+        end
+
         SERIALIZERS.fetch(format)
       end
 
@@ -27,6 +31,8 @@ module ActiveSupport
       private
         def detect_format(dumped)
           case
+          when MessagePackWithFallback.dumped?(dumped)
+            :message_pack
           when MarshalWithFallback.dumped?(dumped)
             :marshal
           when JsonWithFallback.dumped?(dumped)
@@ -103,10 +109,48 @@ module ActiveSupport
           extend self
         end
 
+        module MessagePackWithFallback
+          include SerializerWithFallback
+          extend self
+
+          def format
+            :message_pack
+          end
+
+          def dump(object)
+            ActiveSupport::MessagePack.dump(object)
+          end
+
+          def _load(dumped)
+            ActiveSupport::MessagePack.load(dumped)
+          end
+
+          def dumped?(dumped)
+            available? && ActiveSupport::MessagePack.signature?(dumped)
+          end
+
+          private
+            def available?
+              return @available if defined?(@available)
+              require "active_support/message_pack"
+              @available = true
+            rescue LoadError
+              @available = false
+            end
+        end
+
+        module MessagePackWithFallbackAllowMarshal
+          include MessagePackWithFallback
+          include AllowMarshal
+          extend self
+        end
+
         SERIALIZERS = {
           marshal: MarshalWithFallback,
           json: JsonWithFallback,
           json_allow_marshal: JsonWithFallbackAllowMarshal,
+          message_pack: MessagePackWithFallback,
+          message_pack_allow_marshal: MessagePackWithFallbackAllowMarshal,
         }
     end
   end
