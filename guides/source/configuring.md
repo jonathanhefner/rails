@@ -2270,7 +2270,7 @@ INFO: The `:message_pack` and `:message_pack_allow_marshal` serializers provide
 improved performance, but require the [`msgpack` gem][] (>= 1.7.0).
 
 Each of the above serializers will emit a [`message_serializer_fallback.active_support`][]
-notification event when they fall back to an alternate deserialization format,
+event notification when they fall back to an alternate deserialization format,
 allowing you to track how often such fallbacks occur.
 
 Alternatively, you can specify any serializer object that responds to `dump` and
