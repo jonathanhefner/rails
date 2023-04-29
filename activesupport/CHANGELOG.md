@@ -1,3 +1,16 @@
+*   `config.active_support.cache_format_version` now accepts `:message_pack` as
+    an option. `:message_pack` can provide improved performance and smaller
+    payload sizes, but requires the [`msgpack` gem](https://rubygems.org/gems/msgpack)
+    (>= 1.7.0).
+
+    Cache entries written using the `6.1` or `7.0` formats can be read when
+    using the `:message_pack` format. Additionally, cache entries written using
+    the `:message_pack` format can now be read when using the `6.1` or `7.0`
+    format. These behaviors makes it easy to migrate between formats without
+    invalidating the entire cache.
+
+    *Jonathan Hefner*
+
 *   Consistently raise an `ArgumentError` if the `ActiveSupport::Cache` key is blank.
 
     *Joshua Young*
