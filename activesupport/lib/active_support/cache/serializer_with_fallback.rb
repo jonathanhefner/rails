@@ -11,6 +11,10 @@ module ActiveSupport
         SERIALIZERS.fetch(format)
       end
 
+      def dump(entry)
+        try_dump_bare_string(entry) || _dump(entry)
+      end
+
       def dump_compressed(entry, threshold)
         dumped = dump(entry)
         try_compress(dumped, threshold) || dumped
@@ -21,10 +25,12 @@ module ActiveSupport
           dumped = decompress(dumped) if compressed?(dumped)
 
           case
+          when loaded = try_load_bare_string(dumped)
+            loaded
           when MessagePackWithFallback.dumped?(dumped)
             MessagePackWithFallback._load(dumped)
-          when Marshal70WithFallback.dumped?(dumped)
-            Marshal70WithFallback._load(dumped)
+          when Marshal71WithFallback.dumped?(dumped)
+            Marshal71WithFallback._load(dumped)
           when Marshal61WithFallback.dumped?(dumped)
             Marshal61WithFallback._load(dumped)
           else
@@ -40,6 +46,40 @@ module ActiveSupport
       end
 
       private
+        BARE_STRING_SIGNATURES = {
+          255 => Encoding::UTF_8,
+          254 => Encoding::BINARY,
+          253 => Encoding::US_ASCII,
+        }
+        BARE_STRING_TEMPLATE = "CEl<"
+        BARE_STRING_VERSION_INDEX = [0, 0.0, 0].pack(BARE_STRING_TEMPLATE).bytesize
+
+        def try_dump_bare_string(entry)
+          if entry.value.instance_of?(String) && signature = BARE_STRING_SIGNATURES.key(entry.value.encoding)
+            packed = [
+              signature,
+              entry.expires_at || -1.0,
+              entry.version&.bytesize || -1,
+            ].pack(BARE_STRING_TEMPLATE)
+
+            packed << entry.version if entry.version
+            packed << entry.value
+          end
+        end
+
+        def try_load_bare_string(dumped)
+          if encoding = BARE_STRING_SIGNATURES[dumped.getbyte(0)]
+            _, expires_at, version_length = dumped.unpack(BARE_STRING_TEMPLATE)
+            value_index = BARE_STRING_VERSION_INDEX + [version_length, 0].max
+
+            Cache::Entry.new(
+              dumped.byteslice(value_index..-1).force_encoding(encoding),
+              version: dumped.byteslice(BARE_STRING_VERSION_INDEX, version_length),
+              expires_at: (expires_at unless expires_at < 0),
+            )
+          end
+        end
+
         ZLIB_HEADER = "\x78".b.freeze
 
         def compressed?(dumped)
@@ -105,14 +145,14 @@ module ActiveSupport
           end
         end
 
-        module Marshal70WithFallback
+        module Marshal71WithFallback
           include SerializerWithFallback
           extend self
 
           MARK_UNCOMPRESSED = "\x00".b.freeze
           MARK_COMPRESSED   = "\x01".b.freeze
 
-          def dump(entry)
+          def _dump(entry)
             MARK_UNCOMPRESSED + Marshal.dump(entry.pack)
           end
 
@@ -136,11 +176,17 @@ module ActiveSupport
           end
         end
 
+        module Marshal70WithFallback
+          include Marshal71WithFallback
+          extend self
+          alias :dump :_dump # Prevent dumping bare strings.
+        end
+
         module MessagePackWithFallback
           include SerializerWithFallback
           extend self
 
-          def dump(entry)
+          def _dump(entry)
             ActiveSupport::MessagePack::CacheSerializer.dump(entry.pack)
           end
 
@@ -167,6 +213,7 @@ module ActiveSupport
           passthrough: PassthroughWithFallback,
           marshal_6_1: Marshal61WithFallback,
           marshal_7_0: Marshal70WithFallback,
+          marshal_7_1: Marshal71WithFallback,
           message_pack: MessagePackWithFallback,
         }
     end
