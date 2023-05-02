@@ -651,6 +651,8 @@ module ActiveSupport
             Cache::SerializerWithFallback[:marshal_6_1]
           when 7.0
             Cache::SerializerWithFallback[:marshal_7_0]
+          when 7.1
+            Cache::SerializerWithFallback[:marshal_7_1]
           else
             Cache::SerializerWithFallback[Cache.format_version]
           end
@@ -978,6 +980,10 @@ module ActiveSupport
 
       def value
         compressed? ? uncompress(@value) : @value
+      end
+
+      def bare_value?
+        !(@version || @expires_in || compressed?)
       end
 
       def mismatched?(version)

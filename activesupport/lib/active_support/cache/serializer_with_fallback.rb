@@ -11,6 +11,10 @@ module ActiveSupport
         SERIALIZERS.fetch(format)
       end
 
+      def dump(entry)
+        try_dump_bare_string(entry) || _dump(entry)
+      end
+
       def dump_compressed(entry, threshold)
         dumped = dump(entry)
         try_compress(dumped, threshold) || dumped
@@ -21,10 +25,12 @@ module ActiveSupport
           dumped = decompress(dumped) if compressed?(dumped)
 
           case
+          when loaded = try_load_bare_string(dumped)
+            loaded
           when MessagePackWithFallback.dumped?(dumped)
             MessagePackWithFallback._load(dumped)
-          when Marshal70WithFallback.dumped?(dumped)
-            Marshal70WithFallback._load(dumped)
+          when Marshal71WithFallback.dumped?(dumped)
+            Marshal71WithFallback._load(dumped)
           when Marshal61WithFallback.dumped?(dumped)
             Marshal61WithFallback._load(dumped)
           else
@@ -40,6 +46,25 @@ module ActiveSupport
       end
 
       private
+        BARE_STRING_SIGNATURE_BYTES = {
+          255 => Encoding::UTF_8,
+          254 => Encoding::BINARY,
+          253 => Encoding::US_ASCII,
+        }
+
+        def try_dump_bare_string(entry)
+          if entry.bare_value? && entry.value.is_a?(String)
+            signature_byte = BARE_STRING_SIGNATURE_BYTES.key(entry.value.encoding)
+            signature_byte.chr(Encoding::BINARY) << entry.value if signature_byte
+          end
+        end
+
+        def try_load_bare_string(dumped)
+          if encoding = BARE_STRING_SIGNATURE_BYTES[dumped.getbyte(0)]
+            Entry.new(dumped.byteslice(1..-1).force_encoding(encoding))
+          end
+        end
+
         ZLIB_HEADER = "\x78".b.freeze
 
         def compressed?(dumped)
@@ -105,14 +130,14 @@ module ActiveSupport
           end
         end
 
-        module Marshal70WithFallback
+        module Marshal71WithFallback
           include SerializerWithFallback
           extend self
 
           MARK_UNCOMPRESSED = "\x00".b.freeze
           MARK_COMPRESSED   = "\x01".b.freeze
 
-          def dump(entry)
+          def _dump(entry)
             MARK_UNCOMPRESSED + Marshal.dump(entry.pack)
           end
 
@@ -136,11 +161,17 @@ module ActiveSupport
           end
         end
 
+        module Marshal70WithFallback
+          include Marshal71WithFallback
+          extend self
+          alias :dump :_dump # Prevent dumping bare strings.
+        end
+
         module MessagePackWithFallback
           include SerializerWithFallback
           extend self
 
-          def dump(entry)
+          def _dump(entry)
             ActiveSupport::MessagePack::CacheSerializer.dump(entry.pack)
           end
 
@@ -167,6 +198,7 @@ module ActiveSupport
           passthrough: PassthroughWithFallback,
           marshal_6_1: Marshal61WithFallback,
           marshal_7_0: Marshal70WithFallback,
+          marshal_7_1: Marshal71WithFallback,
           message_pack: MessagePackWithFallback,
         }
     end

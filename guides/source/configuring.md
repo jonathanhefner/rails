@@ -2266,10 +2266,11 @@ The default value depends on the `config.load_defaults` target version:
 #### `config.active_support.cache_format_version`
 
 Specifies which serialization format to use for the cache. Possible values are
-`6.1`, `7.0`, and `:message_pack`.
+`6.1`, `7.0`, `7.1`, and `:message_pack`.
 
-The `6.1` and `7.0` formats both use `Marshal`, but the latter uses a more
-efficient cache entry representation.
+The `6.1`, `7.0`, and `7.1` formats all use `Marshal`, but `7.0` uses a more
+efficient representation of cache entries, and `7.1` additionally uses a more
+efficient representation of bare strings such as view fragments.
 
 The `:message_pack` format uses `ActiveSupport::MessagePack`, and may provide
 improved performance and even smaller cache entries, but requires the

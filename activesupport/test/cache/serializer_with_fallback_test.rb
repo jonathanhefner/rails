@@ -45,6 +45,34 @@ class CacheSerializerWithFallbackTest < ActiveSupport::TestCase
     end
   end
 
+  (FORMATS - [:passthrough, :marshal_6_1, :marshal_7_0]).each do |format|
+    test "#{format.inspect} serializer dumps bare-string entries with only 1 byte of overhead" do
+      entry = ActiveSupport::Cache::Entry.new("foobar")
+      dumped = serializer(format).dump(entry)
+
+      assert_equal entry.value.size + 1, dumped.size
+      assert_entry entry, serializer(format).load(dumped)
+    end
+
+    test "#{format.inspect} serializer preserves metadata of string-valued entries" do
+      entry = ActiveSupport::Cache::Entry.new("foobar", expires_in: 10, version: "1")
+      dumped = serializer(format).dump(entry)
+
+      assert_entry entry, serializer(format).load(dumped)
+    end
+  end
+
+  [:passthrough, :marshal_6_1, :marshal_7_0].each do |format|
+    test "#{format.inspect} serializer dumps bare-string entries in a backward compatible way" do
+      string = +"foobar"
+      string.instance_variable_set(:@baz, true)
+      entry = ActiveSupport::Cache::Entry.new(string)
+      dumped = serializer(format).dump(entry)
+
+      assert serializer(format).load(dumped).value.instance_variable_get(:@baz)
+    end
+  end
+
   test ":message_pack serializer handles missing class gracefully" do
     klass = Class.new do
       def self.name; "DoesNotActuallyExist"; end
@@ -69,9 +97,9 @@ class CacheSerializerWithFallbackTest < ActiveSupport::TestCase
     end
 
     def assert_entry(expected, actual)
-      assert_equal expected.value, actual.value
-      assert_equal expected.version, actual.version
-      assert_equal expected.expires_at, actual.expires_at
+      assert_equal \
+        [expected.value, expected.version, expected.expires_at],
+        [actual.value, actual.version, actual.expires_at]
     end
 
     def assert_logs(pattern, &block)
