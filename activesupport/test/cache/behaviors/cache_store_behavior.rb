@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "active_support/core_ext/numeric/time"
+require "active_support/core_ext/object/with"
 require "active_support/error_reporter/test_helper"
 
 # Tests the base functionality that should be identical across all cache stores.
@@ -147,6 +148,10 @@ module CacheStoreBehavior
     assert_equal({ key => "bar", other_key => "baz" }, @cache.read_multi(key, other_key))
   end
 
+  def test_read_multi_with_no_keys
+    assert_equal({}, @cache.read_multi)
+  end
+
   def test_read_multi_with_expires
     time = Time.now
     key = SecureRandom.uuid
@@ -157,6 +162,26 @@ module CacheStoreBehavior
     Time.stub(:now, time + 11) do
       assert_equal({ other_key => "baz" }, @cache.read_multi(other_key, SecureRandom.alphanumeric))
     end
+  end
+
+  def test_read_multi_logging
+    assert_logs("Cache read_multi: 2 key(s)") { @cache.read_multi("foo", "bar") }
+    assert_logs("Cache read_multi: 1 key(s)") { @cache.read_multi("foo") }
+    assert_logs("Cache read_multi: 0 key(s)") { @cache.read_multi }
+  end
+
+  def test_write_multi
+    key = SecureRandom.uuid
+    @cache.write_multi("#{key}1" => 1, "#{key}2" => 2)
+    assert_equal 1, @cache.read("#{key}1")
+    assert_equal 2, @cache.read("#{key}2")
+  end
+
+  def test_write_multi_logging
+    key = SecureRandom.uuid
+    assert_logs("Cache write_multi: 2 key(s)") { @cache.write_multi("#{key}1" => 1, "#{key}2" => 2) }
+    assert_logs("Cache write_multi: 1 key(s)") { @cache.write_multi("#{key}1" => 1) }
+    assert_logs("Cache write_multi: 0 key(s)") { @cache.write_multi({}) }
   end
 
   def test_fetch_multi
@@ -821,14 +846,12 @@ module CacheStoreBehavior
     end
 
     def capture_logs(&block)
-      old_logger = ActiveSupport::Cache::Store.logger
-      log = StringIO.new
-      ActiveSupport::Cache::Store.logger = ActiveSupport::Logger.new(log)
-      begin
-        yield
-        log.string
-      ensure
-        ActiveSupport::Cache::Store.logger = old_logger
-      end
+      io = StringIO.new
+      ActiveSupport::Cache::Store.with(logger: Logger.new(io, level: :debug), &block)
+      io.string
+    end
+
+    def assert_logs(pattern, &block)
+      assert_match pattern, capture_logs(&block)
     end
 end

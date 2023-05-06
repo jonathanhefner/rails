@@ -865,7 +865,9 @@ module ActiveSupport
 
         def instrument(operation, key, options = nil)
           if logger && logger.debug? && !silence?
-            logger.debug "Cache #{operation}: #{normalize_key(key, options)}#{options.blank? ? "" : " (#{options.inspect})"}"
+            debug_key = operation.end_with?("_multi") ? "#{key.size} key(s) specified" : normalize_key(key, options)
+            debug_options = options.blank? ? "" : " (#{options.inspect})"
+            logger.debug "Cache #{operation}: #{debug_key}#{debug_options}"
           end
 
           payload = { key: key, store: self.class.name }
