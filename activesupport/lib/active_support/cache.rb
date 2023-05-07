@@ -440,7 +440,7 @@ module ActiveSupport
         options = names.extract_options!
         options = merged_options(options)
 
-        instrument :read_multi, names, options do |payload|
+        instrument :read_multi, names, options, multi: true do |payload|
           read_multi_entries(names, **options, event: payload).tap do |results|
             payload[:hits] = results.keys
           end
@@ -451,7 +451,7 @@ module ActiveSupport
       def write_multi(hash, options = nil)
         options = merged_options(options)
 
-        instrument :write_multi, hash, options do |payload|
+        instrument :write_multi, hash, options, multi: true do |payload|
           entries = hash.each_with_object({}) do |(name, value), memo|
             memo[normalize_key(name, options)] = Entry.new(value, **options.merge(version: normalize_version(name, options)))
           end
@@ -495,7 +495,7 @@ module ActiveSupport
         options = names.extract_options!
         options = merged_options(options)
 
-        instrument :read_multi, names, options do |payload|
+        instrument :read_multi, names, options, multi: true do |payload|
           if options[:force]
             reads = {}
           else
@@ -577,7 +577,7 @@ module ActiveSupport
         options = merged_options(options)
         names.map! { |key| normalize_key(key, options) }
 
-        instrument :delete_multi, names do
+        instrument :delete_multi, names, options, multi: true do
           delete_multi_entries(names, **options)
         end
       end
@@ -863,9 +863,9 @@ module ActiveSupport
           end
         end
 
-        def instrument(operation, key, options = nil)
+        def instrument(operation, key, options = nil, multi: false)
           if logger && logger.debug? && !silence?
-            debug_key = operation.end_with?("_multi") ? "#{key.size} key(s) specified" : normalize_key(key, options)
+            debug_key = multi ? "#{key.size} key(s) specified" : normalize_key(key, options)
             debug_options = options.blank? ? "" : " (#{options.inspect})"
             logger.debug "Cache #{operation}: #{debug_key}#{debug_options}"
           end

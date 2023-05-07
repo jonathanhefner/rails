@@ -176,7 +176,7 @@ module ActiveSupport
       # fetched values.
       def read_multi(*names)
         options = names.extract_options!
-        instrument(:read_multi, names, options) do |payload|
+        instrument(:read_multi, names, options, multi: true) do |payload|
           read_multi_entries(names, **options).tap do |results|
             payload[:hits] = results.keys
           end
@@ -237,7 +237,7 @@ module ActiveSupport
       #
       # Failsafe: Raises errors.
       def increment(name, amount = 1, options = nil)
-        instrument :increment, name, amount: amount do
+        instrument :increment, name, { amount: amount } do
           failsafe :increment do
             options = merged_options(options)
             key = normalize_key(name, options)
@@ -263,7 +263,7 @@ module ActiveSupport
       #
       # Failsafe: Raises errors.
       def decrement(name, amount = 1, options = nil)
-        instrument :decrement, name, amount: amount do
+        instrument :decrement, name, { amount: amount } do
           failsafe :decrement do
             options = merged_options(options)
             key = normalize_key(name, options)

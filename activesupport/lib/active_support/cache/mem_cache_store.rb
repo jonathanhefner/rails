@@ -179,7 +179,7 @@ module ActiveSupport
       # <tt>raw: true</tt>, will fail and return +nil+.
       def increment(name, amount = 1, options = nil)
         options = merged_options(options)
-        instrument(:increment, name, amount: amount) do
+        instrument(:increment, name, { amount: amount }) do
           rescue_error_with nil do
             @data.with { |c| c.incr(normalize_key(name, options), amount, options[:expires_in], amount) }
           end
@@ -203,7 +203,7 @@ module ActiveSupport
       # <tt>raw: true</tt>, will fail and return +nil+.
       def decrement(name, amount = 1, options = nil)
         options = merged_options(options)
-        instrument(:decrement, name, amount: amount) do
+        instrument(:decrement, name, { amount: amount }) do
           rescue_error_with nil do
             @data.with { |c| c.decr(normalize_key(name, options), amount, options[:expires_in], 0) }
           end
