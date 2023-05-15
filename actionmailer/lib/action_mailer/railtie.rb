@@ -27,7 +27,6 @@ module ActionMailer
       options.javascripts_dir ||= paths["public/javascripts"].first
       options.stylesheets_dir ||= paths["public/stylesheets"].first
       options.show_previews = Rails.env.development? if options.show_previews.nil?
-      options.cache_store ||= Rails.cache
       options.preview_paths |= ["#{Rails.root}/test/mailers/previews"]
 
       # make sure readers methods get compiled
@@ -58,6 +57,8 @@ module ActionMailer
           self.smtp_settings[:open_timeout] ||= smtp_timeout
           self.smtp_settings[:read_timeout] ||= smtp_timeout
         end
+
+        # self.cache_store = options.delete(:cache_store) || Rails.cache
 
         options.each { |k, v| send("#{k}=", v) }
       end

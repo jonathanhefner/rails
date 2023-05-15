@@ -4099,6 +4099,34 @@ module ApplicationTests
         Rails.cache.instance_variable_get(:@coder)
     end
 
+    test "TODO 1" do
+      app_file "config/initializers/using_rails_cache.rb", <<~RUBY
+        $rails_cache = Rails.cache
+      RUBY
+
+      assert_deprecated(/Rails\.cache/, Rails.deprecator) do
+        app "development"
+      end
+
+      assert_same Rails.cache, $rails_cache
+    end
+
+    test "TODO 2" do
+      app_file "config/initializers/using_rails_cache.rb", <<~RUBY
+        # Rails.application.initializer "using_rails_cache", after: :initialize_cache do
+        Rails.application.config.after_initialize do
+          $rails_cache = Rails.cache
+        end
+      RUBY
+
+      assert_not_deprecated(Rails.deprecator) do
+        app "development"
+      end
+
+      assert_same Rails.cache, $rails_cache
+    end
+
+
     test "raise_on_invalid_cache_expiration_time is false with 7.0 defaults" do
       remove_from_config '.*config\.load_defaults.*\n'
       add_to_config 'config.load_defaults "7.0"'

@@ -38,8 +38,10 @@ module Rails
   class << self
     @application = @app_class = nil
 
+    attr_accessor :app_class, :logger
+
     attr_writer :application
-    attr_accessor :app_class, :cache, :logger
+
     def application
       @application ||= (app_class.instance if app_class)
     end
@@ -49,6 +51,24 @@ module Rails
     # The Configuration instance used to configure the Rails environment
     def configuration
       application.config
+    end
+
+    # TODO doc with `:attr_accessor:` with overriden name?
+    attr_accessor :_cache # :nodoc:
+
+    def cache=(cache)
+      self._cache = nil
+      @cache = cache
+    end
+
+    def cache
+      @cache ||= begin
+        Rails.deprecator.warn <<~MSG
+          TODO Rails.cache
+        MSG
+
+        _cache
+      end
     end
 
     def backtrace_cleaner

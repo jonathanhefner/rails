@@ -62,17 +62,22 @@ module Rails
       end
 
       # Initialize cache early in the stack so railties can make use of it.
-      initializer :initialize_cache, group: :all do
+      initializer :initialize_cache_early, group: :all do
         cache_format_version = config.active_support.delete(:cache_format_version)
         ActiveSupport.cache_format_version = cache_format_version if cache_format_version
 
-        unless Rails.cache
-          Rails.cache = ActiveSupport::Cache.lookup_store(*config.cache_store)
+        unless Rails.cache # TODO silence deprecation warning
+          Rails._cache = ActiveSupport::Cache.lookup_store(*config.cache_store)
 
-          if Rails.cache.respond_to?(:middleware)
-            config.middleware.insert_before(::Rack::Runtime, Rails.cache.middleware)
+          # TODO consider consequences of moving this later in boot sequence
+          if Rails._cache.respond_to?(:middleware)
+            config.middleware.insert_before(::Rack::Runtime, Rails._cache.middleware)
           end
         end
+      end
+
+      initializer :initialize_cache, after: :load_config_initializers, group: :all do
+        Rails.cache = Rails._cache if Rails._cache
       end
 
       # We setup the once autoloader this early so that engines and applications
