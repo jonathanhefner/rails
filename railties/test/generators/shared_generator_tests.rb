@@ -110,6 +110,15 @@ module SharedGeneratorTests
     end
   end
 
+  def test_template_with_special_characters_in_path
+    Dir.mktmpdir do |dir|
+      template_path = "#{dir}/company's template  (original).rb"
+      FileUtils.cp "#{fixtures_root}/lib/template.rb", template_path
+
+      assert_match "It works from file!", run_generator([destination_root, "-m", template_path])
+    end
+  end
+
   def test_template_raises_an_error_with_invalid_path
     quietly do
       content = capture(:stderr) { run_generator([destination_root, "-m", "non/existent/path"]) }
