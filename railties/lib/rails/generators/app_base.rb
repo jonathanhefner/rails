@@ -247,15 +247,12 @@ module Rails
 
       def set_default_accessors! # :doc:
         self.destination_root = File.expand_path(app_path, destination_root)
-        self.rails_template = \
-          case options[:template]
-          when /^https?:\/\//
-            options[:template]
-          when String
-            File.expand_path(`echo #{options[:template]}`.strip)
-          else
-            options[:template]
-          end
+        self.rails_template = options[:template]
+
+        if rails_template.is_a?(String) && !rails_template.match?(/^https?:\/\//)
+          interpolated = rails_template.gsub(/\$(\w+)|\$\{\g<1>\}|%\g<1>%/) { |match| ENV[$1] || match }
+          self.rails_template = File.expand_path(interpolated)
+        end
       end
 
       def database_gemfile_entry # :doc:
