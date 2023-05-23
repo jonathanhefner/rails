@@ -291,6 +291,14 @@ module Rails
           end
         end
 
+        def nest_in(*beginnings, &block)
+          content = beginnings.flatten.reverse.reduce(capture(&block)) do |content, beginning|
+            "#{beginning}\n#{indent(content).chomp}\nend\n"
+          end
+
+          concat(content)
+        end
+
         # Wrap block with namespace of current application
         # if namespace exists and is not skipped
         def module_namespacing(&block) # :doc:
