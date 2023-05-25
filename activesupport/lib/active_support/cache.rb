@@ -992,20 +992,15 @@ module ActiveSupport
         end
       end
 
-      attr_reader :version
+      attr_reader :value, :version
 
       # Creates a new cache entry for the specified value. Options supported are
       # +:compressed+, +:version+, +:expires_at+ and +:expires_in+.
-      def initialize(value, compressed: false, version: nil, expires_in: nil, expires_at: nil, **)
+      def initialize(value, version: nil, expires_in: nil, expires_at: nil, **)
         @value      = value
         @version    = version
         @created_at = 0.0
         @expires_in = expires_at&.to_f || expires_in && (expires_in.to_f + Time.now.to_f)
-        @compressed = true if compressed
-      end
-
-      def value
-        compressed? ? uncompress(@value) : @value
       end
 
       def mismatched?(version)
@@ -1043,34 +1038,6 @@ module ActiveSupport
         end
       end
 
-      def compressed? # :nodoc:
-        defined?(@compressed)
-      end
-
-      def compressed(compress_threshold)
-        return self if compressed?
-
-        case @value
-        when nil, true, false, Numeric
-          uncompressed_size = 0
-        when String
-          uncompressed_size = @value.bytesize
-        else
-          serialized = Marshal.dump(@value)
-          uncompressed_size = serialized.bytesize
-        end
-
-        if uncompressed_size >= compress_threshold
-          serialized ||= Marshal.dump(@value)
-          compressed = Zlib::Deflate.deflate(serialized)
-
-          if compressed.bytesize < uncompressed_size
-            return Entry.new(compressed, compressed: true, expires_at: expires_at, version: version)
-          end
-        end
-        self
-      end
-
       def local?
         false
       end
@@ -1078,7 +1045,7 @@ module ActiveSupport
       # Duplicates the value in a class. This is used by cache implementations that don't natively
       # serialize entries to protect against accidental cache modifications.
       def dup_value!
-        if @value && !compressed? && !(@value.is_a?(Numeric) || @value == true || @value == false)
+        if @value && !(@value.is_a?(Numeric) || @value == true || @value == false)
           if @value.is_a?(String)
             @value = @value.dup
           else
@@ -1092,11 +1059,6 @@ module ActiveSupport
         members.pop while !members.empty? && members.last.nil?
         members
       end
-
-      private
-        def uncompress(value)
-          Marshal.load(Zlib::Inflate.inflate(value))
-        end
     end
   end
 end

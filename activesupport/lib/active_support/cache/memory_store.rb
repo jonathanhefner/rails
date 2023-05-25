@@ -30,21 +30,67 @@ module ActiveSupport
         extend self
 
         def dump(entry)
-          entry.dup_value! unless entry.compressed?
-          entry
+          _dump(entry)
         end
 
         def dump_compressed(entry, threshold)
-          entry = entry.compressed(threshold)
-          entry.dup_value! unless entry.compressed?
-          entry
+          _dump(entry, compression_threshold: threshold)
         end
 
-        def load(entry)
-          entry = entry.dup
-          entry.dup_value!
-          entry
+        def load(categorized)
+          category, value, metadata = categorized
+
+          value =
+            case category
+            when :string
+              value.dup
+            when :compressed_string
+              decompress(value)
+            when :dump
+              Marshal.load(value)
+            when :compressed_dump
+              Marshal.load(decompress(value))
+            end
+
+          Entry.unpack([value, *metadata])
         end
+
+        private
+          def _dump(entry, compression_threshold: nil)
+            value, *metadata = entry.pack
+
+            categorized =
+              case value
+              when nil, true, false, Numeric
+                [:basic, value]
+              when String
+                if compressed = try_compress(value, compression_threshold)
+                  [:compressed_string, compressed]
+                else
+                  [:string, value.frozen? ? value : value.dup]
+                end
+              else
+                dumped = Marshal.dump(value)
+                if compressed = try_compress(dumped, compression_threshold)
+                  [:compressed_dump, compressed]
+                else
+                  [:dump, dumped]
+                end
+              end
+
+            categorized << metadata
+          end
+
+          def try_compress(string, threshold)
+            if threshold && string.bytesize >= threshold
+              compressed = Zlib::Deflate.deflate(string)
+              compressed unless compressed.bytesize >= string.bytesize
+            end
+          end
+
+          def decompress(compressed)
+            Zlib::Inflate.inflate(compressed)
+          end
       end
 
       def initialize(options = nil)
