@@ -29,22 +29,61 @@ module ActiveSupport
       module DupCoder # :nodoc:
         extend self
 
-        def dump(entry)
-          entry.dup_value! unless entry.compressed?
-          entry
+        def dump(entry, compression_threshold: Float::INFINITY)
+          case entry.value
+          when nil, true, false, Numeric
+            entry
+          else
+            value = try_compress(dump_value(entry.value), compression_threshold)
+            Cache::Entry.new(value, expires_at: entry.expires_at, version: entry.version)
+          end
         end
 
         def dump_compressed(entry, threshold)
-          entry = entry.compressed(threshold)
-          entry.dup_value! unless entry.compressed?
-          entry
+          dump(entry, compression_threshold: threshold)
         end
 
         def load(entry)
-          entry = entry.dup
-          entry.dup_value!
-          entry
+          case entry.value
+          when nil, true, false, Numeric
+            entry
+          else
+            value = load_value(try_decompress(entry.value))
+            Cache::Entry.new(value, expires_at: entry.expires_at, version: entry.version)
+          end
         end
+
+        private
+          BARE_STRING_ENCODINGS = [Encoding::UTF_8, Encoding::BINARY, Encoding::US_ASCII]
+
+          def dump_value(value)
+            if value.is_a?(String) && BARE_STRING_ENCODINGS.include?(value.encoding)
+              "\x00".encode(value.encoding) << value
+            else
+              Marshal.dump(value)
+            end
+          end
+
+          def load_value(string)
+            if string.getbyte(0) == 0
+              string.byteslice(1..)
+            else
+              Marshal.load(string)
+            end
+          end
+
+          ZLIB_HEADER = "\x78".b.freeze
+
+          def try_compress(string, threshold)
+            if string.bytesize >= threshold
+              compressed = Zlib::Deflate.deflate(string)
+              compressed unless compressed.bytesize >= string.bytesize
+            end || string
+          end
+
+          def try_decompress(string)
+            string.start_with?(ZLIB_HEADER) ? Zlib::Inflate.inflate(string) : string
+          end
       end
 
       def initialize(options = nil)

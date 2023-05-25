@@ -62,7 +62,10 @@ end
 
 class MemoryStorePruningTest < ActiveSupport::TestCase
   def setup
-    @record_size = ActiveSupport::Cache.lookup_store(:memory_store).send(:cached_size, 1, ActiveSupport::Cache::Entry.new("aaaaaaaaaa"))
+    @record_size = ActiveSupport::Cache.lookup_store(:memory_store).tap do |cache|
+      cache.write(1, "aaaaaaaaaa")
+    end.instance_variable_get(:@cache_size)
+
     @cache = ActiveSupport::Cache.lookup_store(:memory_store, expires_in: 60, size: @record_size * 10 + 1)
   end
 

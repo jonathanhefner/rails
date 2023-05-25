@@ -8,7 +8,7 @@ class CacheStoreNamespaceTest < ActiveSupport::TestCase
     cache = ActiveSupport::Cache.lookup_store(:memory_store, namespace: "tester")
     cache.write("foo", "bar")
     assert_equal "bar", cache.read("foo")
-    assert_equal "bar", cache.instance_variable_get(:@data)["tester:foo"].value
+    assert_includes cache.instance_variable_get(:@data), "tester:foo"
   end
 
   def test_proc_namespace
@@ -17,7 +17,7 @@ class CacheStoreNamespaceTest < ActiveSupport::TestCase
     cache = ActiveSupport::Cache.lookup_store(:memory_store, namespace: proc)
     cache.write("foo", "bar")
     assert_equal "bar", cache.read("foo")
-    assert_equal "bar", cache.instance_variable_get(:@data)["tester:foo"].value
+    assert_includes cache.instance_variable_get(:@data), "tester:foo"
   end
 
   def test_delete_matched_key_start
