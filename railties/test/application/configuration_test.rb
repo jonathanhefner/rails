@@ -4229,9 +4229,10 @@ module ApplicationTests
 
       app "development"
 
+      assert_not_nil Rails.cache.instance_variable_get(:@coder)
       assert_equal \
-        ActiveSupport::Cache::NullStore.new.instance_variable_get(:@coder),
-        Rails.cache.instance_variable_get(:@coder)
+        Marshal.dump(ActiveSupport::Cache::NullStore.new.instance_variable_get(:@coder)),
+        Marshal.dump(Rails.cache.instance_variable_get(:@coder))
     end
 
     test "raise_on_invalid_cache_expiration_time is false with 7.0 defaults" do

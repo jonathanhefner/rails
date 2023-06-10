@@ -8,6 +8,7 @@ require "active_support/core_ext/numeric/bytes"
 require "active_support/core_ext/object/to_param"
 require "active_support/core_ext/object/try"
 require "active_support/core_ext/string/inflections"
+require_relative "cache/serializer_adapter"
 require_relative "cache/serializer_with_fallback"
 
 module ActiveSupport
@@ -231,29 +232,70 @@ module ActiveSupport
       #
       # ==== Options
       #
-      # * +:namespace+ - Sets the namespace for the cache. This option is
-      #   especially useful if your application shares a cache with other
-      #   applications.
-      # * +:coder+ - Replaces the default cache entry serialization mechanism
-      #   with a custom one. The +coder+ must respond to +dump+ and +load+.
-      #   Using a custom coder disables automatic compression.
+      # [+:namespace+]
+      #   Sets the namespace for the cache. This option is especially useful if
+      #   your application shares a cache with other applications.
+      #
+      # [+:coder+]
+      #   Replaces the default serializer for cache entries. +coder+ must
+      #   respond to +dump+ and +load+.
       #
       #   Alternatively, you can specify <tt>coder: :message_pack</tt> to use a
-      #   preconfigured coder based on ActiveSupport::MessagePack that supports
-      #   automatic compression and includes a fallback mechanism to load old
-      #   cache entries from the default coder. However, this option requires
-      #   the +msgpack+ gem.
+      #   preconfigured coder based on ActiveSupport::MessagePack that includes
+      #   a fallback mechanism to load old cache entries from the default coder.
+      #   However, this option requires the +msgpack+ gem.
+      #
+      # [+:compressor+]
+      #   Replaces the default compressor for serialized cache entries.
+      #   +compressor+ must respond to +deflate+ and +inflate+.
+      #
+      #   The default compressor uses +Zlib+. To define a new custom compressor
+      #   that also decompresses old cache entries, you can check compressed
+      #   values for Zlib's <tt>"\x78"</tt> signature:
+      #
+      #     module MyCompressor
+      #       def self.deflate(dumped)
+      #         # compression logic... (make sure result does not start with "\x78"!)
+      #       end
+      #
+      #       def self.inflate(compressed)
+      #         if compressed.start_with?("\x78")
+      #           Zlib.inflate(compressed)
+      #         else
+      #           # decompression logic...
+      #         end
+      #       end
+      #     end
+      #
+      #     ActiveSupport::Cache.lookup_store(:redis_cache_store, compressor: MyCompressor)
       #
       # Any other specified options are treated as default options for the
       # relevant cache operations, such as #read, #write, and #fetch.
       def initialize(options = nil)
         @options = options ? normalize_options(options) : {}
-        @options[:compress] = true unless @options.key?(:compress)
-        @options[:compress_threshold] = DEFAULT_COMPRESS_LIMIT unless @options.key?(:compress_threshold)
 
-        @coder = @options.delete(:coder) { default_coder } || NullCoder
-        @coder = Cache::SerializerWithFallback[@coder] if @coder.is_a?(Symbol)
-        @coder_supports_compression = @coder.respond_to?(:dump_compressed)
+        @options[:compress] = true unless @options.key?(:compress)
+        @options[:compress_threshold] ||= DEFAULT_COMPRESS_LIMIT
+
+        serializer = @options.delete(:coder) { default_coder } || :passthrough
+        serializer = Cache::SerializerWithFallback[serializer] if serializer.is_a?(Symbol)
+
+        if @options[:compressor]
+          if Cache.format_version < 7.1
+            raise ArgumentError, "Cannot use compressor (#{@options[:compressor]})" \
+              " because cache format version (#{Cache.format_version}) is < 7.1"
+          end
+          if serializer.respond_to?(:dump_as_entry)
+            raise ArgumentError, "Cannot use compressor (#{@options[:compressor]})" \
+              " because coder (#{serializer}) is incompatible"
+          end
+        end
+
+        @coder = Cache::SerializerAdapter.new(
+          serializer: serializer,
+          compressor: @options.delete(:compressor) { Zlib },
+          adapt_dump: Cache.format_version >= 7.1 && !serializer.respond_to?(:dump_as_entry),
+        )
       end
 
       # Silences the logger.
@@ -714,8 +756,8 @@ module ActiveSupport
 
         def serialize_entry(entry, **options)
           options = merged_options(options)
-          if @coder_supports_compression && options[:compress]
-            @coder.dump_compressed(entry, options[:compress_threshold] || DEFAULT_COMPRESS_LIMIT)
+          if options[:compress]
+            @coder.dump_compressed(entry, options[:compress_threshold])
           else
             @coder.dump(entry)
           end
@@ -978,22 +1020,6 @@ module ActiveSupport
       end
     end
 
-    module NullCoder # :nodoc:
-      extend self
-
-      def dump(entry)
-        entry
-      end
-
-      def dump_compressed(entry, threshold)
-        entry.compressed(threshold)
-      end
-
-      def load(payload)
-        payload
-      end
-    end
-
     # This class is used to represent cache entries. Cache entries have a value, an optional
     # expiration time, and an optional version. The expiration time is used to support the :race_condition_ttl option
     # on the cache. The version is used to support the :version option on the cache for rejecting
@@ -1021,6 +1047,7 @@ module ActiveSupport
       end
 
       def value
+        @value = @value.call if @value.instance_of?(Proc)
         compressed? ? uncompress(@value) : @value
       end
 
