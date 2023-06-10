@@ -143,7 +143,7 @@ module ActiveSupport
       #   cache.exist?('bar') # => false
       def initialize(error_handler: DEFAULT_ERROR_HANDLER, **redis_options)
         base_options = redis_options.extract!(
-          :coder, :compress, :compress_threshold,
+          :coder, :compressor, :compress, :compress_threshold,
           :namespace, :expires_in, :race_condition_ttl, :skip_nil,
         )
 
