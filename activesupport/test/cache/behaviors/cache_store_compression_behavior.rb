@@ -1,23 +1,48 @@
 # frozen_string_literal: true
 
 require "active_support/core_ext/numeric/bytes"
+require "active_support/core_ext/object/with"
 
 module CacheStoreCompressionBehavior
   extend ActiveSupport::Concern
 
   included do
+    test "compression works with cache format version > 6.1" do
+      @cache = ActiveSupport::Cache.with(format_version: 7.0) do
+        lookup_store(compress: true)
+      end
+
+      assert_compression true
+    end
+
+    test "compression works with cache format version 6.1 (using Cache::Entry#compressed)" do
+      @cache = ActiveSupport::Cache.with(format_version: 6.1) do
+        lookup_store(compress: true)
+      end
+
+      assert_compression true
+    end
+
+    test "compression works with custom coder and cache format version >= 7.1" do
+      @cache = ActiveSupport::Cache.with(format_version: 7.1) do
+        lookup_store(compress: true, coder: Marshal)
+      end
+
+      assert_compression true
+    end
+
+    test "compression is disabled with custom coder and cache format version < 7.1" do
+      @cache = ActiveSupport::Cache.with(format_version: 7.0) do
+        lookup_store(coder: Marshal)
+      end
+
+      assert_compression false
+    end
+
     test "compression by default" do
       @cache = lookup_store
 
-      assert_uncompressed SMALL_STRING
-      assert_uncompressed SMALL_OBJECT
-      if compression_always_disabled_by_default?
-        assert_uncompressed LARGE_STRING
-        assert_uncompressed LARGE_OBJECT
-      else
-        assert_compressed LARGE_STRING
-        assert_compressed LARGE_OBJECT
-      end
+      assert_compression !compression_always_disabled_by_default?
     end
 
     test "compression can be disabled" do
@@ -88,6 +113,60 @@ module CacheStoreCompressionBehavior
       assert_uncompressed "", compress: true, compress_threshold: 1
       assert_uncompressed [*0..127].pack("C*"), compress: true, compress_threshold: 1
     end
+
+    test "compressor can be replaced" do
+      lossy_compressor = Module.new do
+        def self.compress(dumped)
+          "yolo"
+        end
+
+        def self.decompress(compressed)
+          Marshal.dump(ActiveSupport::Cache::Entry.new("lossy!")) if compressed == "yolo"
+        end
+      end
+
+      cache = lookup_store(compressor: lossy_compressor, compress: true, coder: Marshal)
+      key = SecureRandom.uuid
+
+      cache.write(key, LARGE_OBJECT)
+      assert_equal "lossy!", cache.read(key)
+    end
+
+    test "replacing compressor raises when coder defines its own compression mechanism" do
+      passthrough_compressor = Module.new do
+        def self.compress(x); x; end
+        def self.decompress(x); x; end
+      end
+
+      ActiveSupport::Cache.with(format_version: 6.1) do
+        assert_raises ArgumentError do
+          lookup_store(compressor: passthrough_compressor, compress: true)
+        end
+      end
+    end
+
+    test "dumped values that appear to include compression markers are preserved" do
+      dumped_bytes_spy = Module.new do
+        def self.dump(entry)
+          entry.value.pack("C*") + " was dumped"
+        end
+
+        def self.load(dumped)
+          ActiveSupport::Cache::Entry.new(dumped)
+        end
+      end
+
+      cache = lookup_store(coder: dumped_bytes_spy, compress: true)
+      key = SecureRandom.uuid
+
+      # Dumped value looks like an already-marked Marshal.dump'd value
+      cache.write("#{key}0", [0x00, 0x04, 0x08])
+      assert_equal "\x00\x04\x08 was dumped", cache.read("#{key}0")
+
+      # Dumped value looks like an already-marked Zlib.deflate'd value
+      cache.write("#{key}1", [0x01, 0x78])
+      assert_equal "\x01\x78 was dumped", cache.read("#{key}1")
+    end
   end
 
   private
@@ -105,6 +184,19 @@ module CacheStoreCompressionBehavior
 
     def assert_uncompressed(value, **options)
       assert_equal 0, compute_entry_size_reduction(value, **options)
+    end
+
+    def assert_compression(compress_large)
+      assert_uncompressed SMALL_STRING
+      assert_uncompressed SMALL_OBJECT
+
+      if compress_large
+        assert_compressed LARGE_STRING
+        assert_compressed LARGE_OBJECT
+      else
+        assert_uncompressed LARGE_STRING
+        assert_uncompressed LARGE_OBJECT
+      end
     end
 
     def compute_entry_size_reduction(value, **options)

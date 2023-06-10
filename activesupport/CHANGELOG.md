@@ -1,3 +1,26 @@
+*   Active Support cache stores now support replacing the default compressor via
+    a `:compressor` option. The specified compressor must respond to `compress`
+    and `decompress`.  For example:
+
+      ```ruby
+      gem "zstd-ruby"
+
+      config.cache_store = :redis_cache_store, { compressor: Zstd }
+      ```
+
+    *Jonathan Hefner*
+
+*   Active Support cache stores now support compression when using a custom
+    coder. (Previously, compression was supported only when using the default
+    coder.)
+
+    New apps that use custom coders will automatically benefit from this change.
+    Existing apps can opt in to this change by setting `config.load_defaults 7.1`
+    or by setting `config.active_support.cache_format_version = 7.1` in
+    `config/application.rb` or a `config/environments/*.rb` file.
+
+    *Jonathan Hefner*
+
 *   `ERB::Util.html_escape_once` always returns an `html_safe` string.
 
     This method previously maintained the `html_safe?` property of a string on the return
