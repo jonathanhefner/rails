@@ -29,18 +29,20 @@ module ActiveSupport
       module DupCoder # :nodoc:
         extend self
 
-        def dump(entry)
+        def dump_as_entry(entry)
           if entry.value && entry.value != true && !entry.value.is_a?(Numeric)
             Cache::Entry.new(dump_value(entry.value), expires_at: entry.expires_at, version: entry.version)
           else
             entry
           end
         end
+        alias :dump :dump_as_entry
 
-        def dump_compressed(entry, threshold)
+        def dump_compressed_as_entry(entry, threshold)
           compressed_entry = entry.compressed(threshold)
           compressed_entry.compressed? ? compressed_entry : dump(entry)
         end
+        alias :dump_compressed :dump_compressed_as_entry
 
         def load(entry)
           if !entry.compressed? && entry.value.is_a?(String)

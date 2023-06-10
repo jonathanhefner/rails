@@ -1,3 +1,34 @@
+*   Active Support cache stores now support replacing the default compressor via
+    a `:compressor` option. The specified compressor must respond to `deflate`
+    and `inflate`. For example:
+
+      ```ruby
+      module MyCompressor
+        def self.deflate(string)
+          # compression logic...
+        end
+
+        def self.inflate(compressed)
+          # decompression logic...
+        end
+      end
+
+      config.cache_store = :redis_cache_store, { compressor: MyCompressor }
+      ```
+
+    *Jonathan Hefner*
+
+*   Active Support cache stores now support compression when using a custom
+    coder. (Previously, compression was supported only when using the default
+    coder.)
+
+    New apps that use custom coders will automatically benefit from this change.
+    Existing apps can opt in to this change by setting `config.load_defaults 7.1`
+    or by setting `config.active_support.cache_format_version = 7.1` in
+    `config/application.rb` or a `config/environments/*.rb` file.
+
+    *Jonathan Hefner*
+
 *   `ERB::Util.html_escape_once` always returns an `html_safe` string.
 
     This method previously maintained the `html_safe?` property of a string on the return
@@ -69,8 +100,10 @@
 
     *Jonathan Hefner*
 
-*   A new `7.1` cache format is available which includes an optimization for
-    bare string values such as view fragments.
+*   A new `7.1` cache format is available which enables an optimization for bare
+    string values such as view fragments. This optimization applies to the
+    default coder and to non-default coders, including the new `:message_pack`
+    coder.
 
     The `7.1` cache format is used by default for new apps, and existing apps
     can enable the format by setting `config.load_defaults 7.1` or by setting
@@ -82,8 +115,6 @@
     upgrade, wherein servers that have not yet been upgraded must be able to
     read caches from upgraded servers, leave the cache format unchanged on the
     first deploy, then enable the `7.1` cache format on a subsequent deploy.
-
-    The new `:message_pack` cache coder also includes this optimization.
 
     *Jonathan Hefner*
 
