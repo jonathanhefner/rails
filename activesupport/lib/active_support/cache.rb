@@ -8,6 +8,7 @@ require "active_support/core_ext/numeric/bytes"
 require "active_support/core_ext/object/to_param"
 require "active_support/core_ext/object/try"
 require "active_support/core_ext/string/inflections"
+require_relative "cache/compressor"
 require_relative "cache/serializer_with_fallback"
 
 module ActiveSupport
@@ -231,29 +232,72 @@ module ActiveSupport
       #
       # ==== Options
       #
-      # * +:namespace+ - Sets the namespace for the cache. This option is
-      #   especially useful if your application shares a cache with other
-      #   applications.
-      # * +:coder+ - Replaces the default cache entry serialization mechanism
-      #   with a custom one. The +coder+ must respond to +dump+ and +load+.
-      #   Using a custom coder disables automatic compression.
+      # [+:namespace+]
+      #   Sets the namespace for the cache. This option is especially useful if
+      #   your application shares a cache with other applications.
+      #
+      # [+:coder+]
+      #   Replaces the default serializer for cache entries. +coder+ must
+      #   respond to +dump+ and +load+.
       #
       #   Alternatively, you can specify <tt>coder: :message_pack</tt> to use a
-      #   preconfigured coder based on ActiveSupport::MessagePack that supports
-      #   automatic compression and includes a fallback mechanism to load old
-      #   cache entries from the default coder. However, this option requires
-      #   the +msgpack+ gem.
+      #   preconfigured coder based on ActiveSupport::MessagePack that includes
+      #   a fallback mechanism to load old cache entries from the default coder.
+      #   However, this option requires the +msgpack+ gem.
+      #
+      #   For backward compatibility reasons, if this option is specified and
+      #   the cache format version is < 7.1 (e.g. when using Rails and
+      #   <tt>config.active_support.cache_format_version = 7.0</tt>), then the
+      #   +:compress+ option will default to false.
+      #
+      # [+:compressor+]
+      #   Replaces the default compressor for serialized cache entries.
+      #   +compressor+ must respond to +compress+ and +decompress+.
+      #
+      #   The default compressor uses +Zlib::Deflate+. To define a new custom
+      #   compressor that also decompresses old cache entries, you can check
+      #   compressed values for Zlib's <tt>"\x78"</tt> signature:
+      #
+      #     module MyCompressor
+      #       def self.compress(dumped)
+      #         # compression logic... (make sure result does not start with "\x78"!)
+      #       end
+      #
+      #       def self.decompress(compressed)
+      #         if compressed.start_with?("\x78")
+      #           Zlib::Deflate.inflate(compressed)
+      #         else
+      #           # decompression logic...
+      #         end
+      #       end
+      #     end
+      #
+      #     ActiveSupport::Cache.lookup_store(:redis_cache_store, compressor: MyCompressor)
       #
       # Any other specified options are treated as default options for the
       # relevant cache operations, such as #read, #write, and #fetch.
       def initialize(options = nil)
         @options = options ? normalize_options(options) : {}
-        @options[:compress] = true unless @options.key?(:compress)
-        @options[:compress_threshold] = DEFAULT_COMPRESS_LIMIT unless @options.key?(:compress_threshold)
+
+        unless @options.key?(:compress)
+          # Prior to Rails 7.1, the built-in compression mechanism did not
+          # support custom coders. So preserve that behavior for backward and
+          # forward compatibility of serialized cache entries.
+          @options[:compress] = !(Cache.format_version < 7.1 && @options[:coder])
+        end
+        @options[:compress_threshold] ||= DEFAULT_COMPRESS_LIMIT
 
         @coder = @options.delete(:coder) { default_coder } || NullCoder
         @coder = Cache::SerializerWithFallback[@coder] if @coder.is_a?(Symbol)
         @coder_supports_compression = @coder.respond_to?(:dump_compressed)
+
+        if @coder_supports_compression && @options[:compressor]
+          raise ArgumentError, "Cannot use compressor (#{@options[:compressor]})" \
+            " because coder (#{@coder}) provides its own compression mechanism"
+        end
+
+        @compressor = @options.delete(:compressor) { Cache::Compressor }
+        @always_mark_uncompressed = Cache.format_version == 7.0
       end
 
       # Silences the logger.
@@ -714,15 +758,17 @@ module ActiveSupport
 
         def serialize_entry(entry, **options)
           options = merged_options(options)
-          if @coder_supports_compression && options[:compress]
-            @coder.dump_compressed(entry, options[:compress_threshold] || DEFAULT_COMPRESS_LIMIT)
+          compress_threshold = options[:compress] ? options[:compress_threshold] : Float::INFINITY
+
+          if @coder_supports_compression
+            @coder.dump_compressed(entry, compress_threshold)
           else
-            @coder.dump(entry)
+            try_compress(@coder.dump(entry), compress_threshold)
           end
         end
 
         def deserialize_entry(payload)
-          payload.nil? ? nil : @coder.load(payload)
+          @coder.load(try_decompress(payload)) unless payload.nil?
         end
 
         # Reads multiple entries from the cache implementation. Subclasses MAY
@@ -943,6 +989,38 @@ module ActiveSupport
 
           write(name, result, options) unless result.nil? && options[:skip_nil]
           result
+        end
+
+        MARK_UNCOMPRESSED = "\x00".b.freeze
+        MARK_COMPRESSED   = "\x01".b.freeze
+
+        def try_compress(string, threshold)
+          return string if !string.is_a?(String)
+
+          if string.bytesize >= threshold
+            compressed = @compressor.compress(string)
+            if compressed.bytesize < string.bytesize
+              return MARK_COMPRESSED + compressed
+            end
+          end
+
+          if @always_mark_uncompressed || string.start_with?(MARK_UNCOMPRESSED, MARK_COMPRESSED)
+            MARK_UNCOMPRESSED + string
+          else
+            string
+          end
+        end
+
+        def try_decompress(string)
+          return string if !string.is_a?(String)
+
+          if string.start_with?(MARK_COMPRESSED)
+            @compressor.decompress(string.byteslice(1..))
+          elsif string.start_with?(MARK_UNCOMPRESSED)
+            string.byteslice(1..)
+          else
+            string
+          end
         end
     end
 

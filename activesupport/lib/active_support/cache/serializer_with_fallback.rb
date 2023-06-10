@@ -17,15 +17,8 @@ module ActiveSupport
         try_dump_bare_string(entry) || _dump(entry)
       end
 
-      def dump_compressed(entry, threshold)
-        dumped = dump(entry)
-        try_compress(dumped, threshold) || dumped
-      end
-
       def load(dumped)
         if dumped.is_a?(String)
-          dumped = decompress(dumped) if compressed?(dumped)
-
           case
           when loaded = try_load_bare_string(dumped)
             loaded
@@ -87,27 +80,6 @@ module ActiveSupport
           )
         end
 
-        ZLIB_HEADER = "\x78".b.freeze
-
-        def compressed?(dumped)
-          dumped.start_with?(ZLIB_HEADER)
-        end
-
-        def compress(dumped)
-          Zlib::Deflate.deflate(dumped)
-        end
-
-        def try_compress(dumped, threshold)
-          if dumped.bytesize >= threshold
-            compressed = compress(dumped)
-            compressed unless compressed.bytesize >= dumped.bytesize
-          end
-        end
-
-        def decompress(compressed)
-          Zlib::Inflate.inflate(compressed)
-        end
-
         module PassthroughWithFallback
           include SerializerWithFallback
           extend self
@@ -133,7 +105,7 @@ module ActiveSupport
           include SerializerWithFallback
           extend self
 
-          MARSHAL_SIGNATURE = "\x04\x08".b.freeze
+          SIGNATURE = "\x04\x08o".b.freeze
 
           def dump(entry)
             Marshal.dump(entry)
@@ -148,7 +120,7 @@ module ActiveSupport
           end
 
           def dumped?(dumped)
-            dumped.start_with?(MARSHAL_SIGNATURE)
+            dumped.start_with?(SIGNATURE)
           end
         end
 
@@ -156,30 +128,18 @@ module ActiveSupport
           include SerializerWithFallback
           extend self
 
-          MARK_UNCOMPRESSED = "\x00".b.freeze
-          MARK_COMPRESSED   = "\x01".b.freeze
+          SIGNATURE = "\x04\x08[".b.freeze
 
           def _dump(entry)
-            MARK_UNCOMPRESSED + Marshal.dump(entry.pack)
+            Marshal.dump(entry.pack)
           end
 
-          def dump_compressed(entry, threshold)
-            dumped = Marshal.dump(entry.pack)
-            if compressed = try_compress(dumped, threshold)
-              MARK_COMPRESSED + compressed
-            else
-              MARK_UNCOMPRESSED + dumped
-            end
-          end
-
-          def _load(marked)
-            dumped = marked.byteslice(1..-1)
-            dumped = decompress(dumped) if marked.start_with?(MARK_COMPRESSED)
+          def _load(dumped)
             Cache::Entry.unpack(Marshal.load(dumped))
           end
 
           def dumped?(dumped)
-            dumped.start_with?(MARK_UNCOMPRESSED, MARK_COMPRESSED)
+            dumped.start_with?(SIGNATURE)
           end
         end
 
