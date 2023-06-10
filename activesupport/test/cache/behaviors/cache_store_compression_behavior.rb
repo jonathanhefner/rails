@@ -17,14 +17,19 @@ module CacheStoreCompressionBehavior
       assert_compression true
     end
 
-    test "compression works with cache format version 7.1 (using Marshal71WithFallback)" do
+    test "compression works with cache format version >= 7.1 (using SerializerAdapter)" do
       @cache = with_format(7.1) { lookup_store(compress: true) }
       assert_compression true
     end
 
-    test "compression is disabled with custom coder" do
-      @cache = with_format(7.1) { lookup_store(coder: Marshal) }
+    test "compression is disabled with custom coder and cache format version < 7.1" do
+      @cache = with_format(7.0) { lookup_store(coder: Marshal) }
       assert_compression false
+    end
+
+    test "compression works with custom coder and cache format version >= 7.1" do
+      @cache = with_format(7.1) { lookup_store(compress: true, coder: Marshal) }
+      assert_compression true
     end
 
     test "compression by default" do
@@ -71,6 +76,42 @@ module CacheStoreCompressionBehavior
     test "compression ignores incompressible data" do
       assert_not_compress "", with: { compress: true, compress_threshold: 1 }
       assert_not_compress [*0..127].pack("C*"), with: { compress: true, compress_threshold: 1 }
+    end
+
+    test "compressor can be replaced" do
+      lossy_compressor = Module.new do
+        def self.deflate(dumped)
+          "yolo"
+        end
+
+        def self.inflate(compressed)
+          Marshal.dump(ActiveSupport::Cache::Entry.new("lossy!")) if compressed == "yolo"
+        end
+      end
+
+      @cache = with_format(7.1) do
+        lookup_store(compressor: lossy_compressor, compress: true, coder: Marshal)
+      end
+      key = SecureRandom.uuid
+
+      @cache.write(key, LARGE_OBJECT)
+      assert_equal "lossy!", @cache.read(key)
+    end
+
+    test "replacing compressor raises when cache format version < 7.1" do
+      with_format(7.0) do
+        assert_raises ArgumentError, match: /compressor/i do
+          lookup_store(compressor: Zlib)
+        end
+      end
+    end
+
+    test "replacing compressor raises when coder dumps entries as Entry instances" do
+      with_format(7.1) do
+        assert_raises ArgumentError, match: /compressor/i do
+          lookup_store(coder: ActiveSupport::Cache::SerializerWithFallback[:passthrough], compressor: Zlib)
+        end
+      end
     end
   end
 
