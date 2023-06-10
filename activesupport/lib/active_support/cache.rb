@@ -8,6 +8,8 @@ require "active_support/core_ext/numeric/bytes"
 require "active_support/core_ext/object/to_param"
 require "active_support/core_ext/object/try"
 require "active_support/core_ext/string/inflections"
+require_relative "cache/entry"
+require_relative "cache/serializer_adapter"
 require_relative "cache/serializer_with_fallback"
 
 module ActiveSupport
@@ -231,29 +233,70 @@ module ActiveSupport
       #
       # ==== Options
       #
-      # * +:namespace+ - Sets the namespace for the cache. This option is
-      #   especially useful if your application shares a cache with other
-      #   applications.
-      # * +:coder+ - Replaces the default cache entry serialization mechanism
-      #   with a custom one. The +coder+ must respond to +dump+ and +load+.
-      #   Using a custom coder disables automatic compression.
+      # [+:namespace+]
+      #   Sets the namespace for the cache. This option is especially useful if
+      #   your application shares a cache with other applications.
+      #
+      # [+:coder+]
+      #   Replaces the default serializer for cache entries. +coder+ must
+      #   respond to +dump+ and +load+.
       #
       #   Alternatively, you can specify <tt>coder: :message_pack</tt> to use a
-      #   preconfigured coder based on ActiveSupport::MessagePack that supports
-      #   automatic compression and includes a fallback mechanism to load old
-      #   cache entries from the default coder. However, this option requires
-      #   the +msgpack+ gem.
+      #   preconfigured coder based on ActiveSupport::MessagePack that includes
+      #   a fallback mechanism to load old cache entries from the default coder.
+      #   However, this option requires the +msgpack+ gem.
+      #
+      # [+:compressor+]
+      #   Replaces the default compressor for serialized cache entries.
+      #   +compressor+ must respond to +deflate+ and +inflate+.
+      #
+      #   The default compressor uses +Zlib+. To define a new custom compressor
+      #   that also decompresses old cache entries, you can check compressed
+      #   values for Zlib's <tt>"\x78"</tt> signature:
+      #
+      #     module MyCompressor
+      #       def self.deflate(dumped)
+      #         # compression logic... (make sure result does not start with "\x78"!)
+      #       end
+      #
+      #       def self.inflate(compressed)
+      #         if compressed.start_with?("\x78")
+      #           Zlib.inflate(compressed)
+      #         else
+      #           # decompression logic...
+      #         end
+      #       end
+      #     end
+      #
+      #     ActiveSupport::Cache.lookup_store(:redis_cache_store, compressor: MyCompressor)
       #
       # Any other specified options are treated as default options for the
       # relevant cache operations, such as #read, #write, and #fetch.
       def initialize(options = nil)
         @options = options ? normalize_options(options) : {}
-        @options[:compress] = true unless @options.key?(:compress)
-        @options[:compress_threshold] = DEFAULT_COMPRESS_LIMIT unless @options.key?(:compress_threshold)
 
-        @coder = @options.delete(:coder) { default_coder } || NullCoder
-        @coder = Cache::SerializerWithFallback[@coder] if @coder.is_a?(Symbol)
-        @coder_supports_compression = @coder.respond_to?(:dump_compressed)
+        @options[:compress] = true unless @options.key?(:compress)
+        @options[:compress_threshold] ||= DEFAULT_COMPRESS_LIMIT
+
+        serializer = @options.delete(:coder) { default_coder } || :passthrough
+        serializer = Cache::SerializerWithFallback[serializer] if serializer.is_a?(Symbol)
+
+        if @options[:compressor]
+          if Cache.format_version < 7.1
+            raise ArgumentError, "Cannot use compressor (#{@options[:compressor]})" \
+              " because cache format version (#{Cache.format_version}) is < 7.1"
+          end
+          if serializer.respond_to?(:dump_as_entry)
+            raise ArgumentError, "Cannot use compressor (#{@options[:compressor]})" \
+              " because coder (#{serializer}) is incompatible"
+          end
+        end
+
+        @coder = Cache::SerializerAdapter.new(
+          serializer: serializer,
+          compressor: @options.delete(:compressor) { Zlib },
+          delegate_entire_dump: Cache.format_version < 7.1 || serializer.respond_to?(:dump_as_entry),
+        )
       end
 
       # Silences the logger.
@@ -714,8 +757,8 @@ module ActiveSupport
 
         def serialize_entry(entry, **options)
           options = merged_options(options)
-          if @coder_supports_compression && options[:compress]
-            @coder.dump_compressed(entry, options[:compress_threshold] || DEFAULT_COMPRESS_LIMIT)
+          if options[:compress]
+            @coder.dump_compressed(entry, options[:compress_threshold])
           else
             @coder.dump(entry)
           end
@@ -976,143 +1019,6 @@ module ActiveSupport
         @options.delete(:expires_in)
         @options[:expires_at] = expires_at
       end
-    end
-
-    module NullCoder # :nodoc:
-      extend self
-
-      def dump(entry)
-        entry
-      end
-
-      def dump_compressed(entry, threshold)
-        entry.compressed(threshold)
-      end
-
-      def load(payload)
-        payload
-      end
-    end
-
-    # This class is used to represent cache entries. Cache entries have a value, an optional
-    # expiration time, and an optional version. The expiration time is used to support the :race_condition_ttl option
-    # on the cache. The version is used to support the :version option on the cache for rejecting
-    # mismatches.
-    #
-    # Since cache entries in most instances will be serialized, the internals of this class are highly optimized
-    # using short instance variable names that are lazily defined.
-    class Entry # :nodoc:
-      class << self
-        def unpack(members)
-          new(members[0], expires_at: members[1], version: members[2])
-        end
-      end
-
-      attr_reader :version
-
-      # Creates a new cache entry for the specified value. Options supported are
-      # +:compressed+, +:version+, +:expires_at+ and +:expires_in+.
-      def initialize(value, compressed: false, version: nil, expires_in: nil, expires_at: nil, **)
-        @value      = value
-        @version    = version
-        @created_at = 0.0
-        @expires_in = expires_at&.to_f || expires_in && (expires_in.to_f + Time.now.to_f)
-        @compressed = true if compressed
-      end
-
-      def value
-        compressed? ? uncompress(@value) : @value
-      end
-
-      def mismatched?(version)
-        @version && version && @version != version
-      end
-
-      # Checks if the entry is expired. The +expires_in+ parameter can override
-      # the value set when the entry was created.
-      def expired?
-        @expires_in && @created_at + @expires_in <= Time.now.to_f
-      end
-
-      def expires_at
-        @expires_in ? @created_at + @expires_in : nil
-      end
-
-      def expires_at=(value)
-        if value
-          @expires_in = value.to_f - @created_at
-        else
-          @expires_in = nil
-        end
-      end
-
-      # Returns the size of the cached value. This could be less than
-      # <tt>value.bytesize</tt> if the data is compressed.
-      def bytesize
-        case value
-        when NilClass
-          0
-        when String
-          @value.bytesize
-        else
-          @s ||= Marshal.dump(@value).bytesize
-        end
-      end
-
-      def compressed? # :nodoc:
-        defined?(@compressed)
-      end
-
-      def compressed(compress_threshold)
-        return self if compressed?
-
-        case @value
-        when nil, true, false, Numeric
-          uncompressed_size = 0
-        when String
-          uncompressed_size = @value.bytesize
-        else
-          serialized = Marshal.dump(@value)
-          uncompressed_size = serialized.bytesize
-        end
-
-        if uncompressed_size >= compress_threshold
-          serialized ||= Marshal.dump(@value)
-          compressed = Zlib::Deflate.deflate(serialized)
-
-          if compressed.bytesize < uncompressed_size
-            return Entry.new(compressed, compressed: true, expires_at: expires_at, version: version)
-          end
-        end
-        self
-      end
-
-      def local?
-        false
-      end
-
-      # Duplicates the value in a class. This is used by cache implementations that don't natively
-      # serialize entries to protect against accidental cache modifications.
-      def dup_value!
-        if @value && !compressed? && !(@value.is_a?(Numeric) || @value == true || @value == false)
-          if @value.is_a?(String)
-            @value = @value.dup
-          else
-            @value = Marshal.load(Marshal.dump(@value))
-          end
-        end
-      end
-
-      def pack
-        members = [value, expires_at, version]
-        members.pop while !members.empty? && members.last.nil?
-        members
-      end
-
-      private
-        def uncompress(value)
-          Marshal.load(Zlib::Inflate.inflate(value))
-        end
     end
   end
 end
