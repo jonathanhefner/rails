@@ -2414,8 +2414,9 @@ Specifies which serialization format to use for the cache. Possible values are
 `7.0` uses a more efficient representation for cache entries when using the
 default coder.
 
-`7.1` enables an optimization for bare string values such as view fragments.
-This optimization applies to the default coder and to non-default coders.
+`7.1` serializes cache entries such that expired values are not deserialized,
+and enables an optimization for bare string values such as view fragments. These
+optimizations apply to the default coder and to non-default coders.
 
 All formats are backward and forward compatible, meaning cache entries written
 in one format can be read when using another format. This behavior makes it

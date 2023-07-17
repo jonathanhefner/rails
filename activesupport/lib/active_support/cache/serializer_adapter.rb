@@ -58,15 +58,17 @@ module ActiveSupport
         version = load_version(dumped.byteslice(PACKED_VERSION_INDEX, version_length))
         payload = dumped.byteslice((PACKED_VERSION_INDEX + [version_length, 0].max)..)
 
+        LazyEntry.new(self, payload, type, version: version, expires_at: expires_at)
+      end
+
+      def _load_payload(payload, type)
         payload = decompress(payload) if type < 0
 
         if string_encoding = STRING_ENCODINGS[type.abs]
-          value = payload.force_encoding(string_encoding)
+          payload.force_encoding(string_encoding)
         else
-          value = deserialize(payload).value
+          deserialize(payload).value
         end
-
-        Cache::Entry.new(value, version: version, expires_at: expires_at)
       end
 
       private
@@ -87,6 +89,28 @@ module ActiveSupport
         PACKED_VERSION_INDEX = [0].pack(PACKED_VERSION_LENGTH_TEMPLATE).bytesize
 
         MARSHAL_SIGNATURE = "\x04\x08".b.freeze
+
+        class LazyEntry < Cache::Entry
+          def initialize(adapter, payload, type, **options)
+            super(payload, **options)
+            @adapter = adapter
+            @type = type
+          end
+
+          def value
+            if @type
+              @value = @adapter._load_payload(@value, @type)
+              @type = nil
+            end
+            @value
+          end
+
+          def mismatched?(version)
+            super.tap { |mismatched| value if !mismatched }
+          rescue Cache::DeserializationError
+            true
+          end
+        end
 
         def signature?(dumped)
           dumped.is_a?(String) && dumped.start_with?(SIGNATURE)

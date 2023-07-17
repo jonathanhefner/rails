@@ -92,6 +92,39 @@ class CacheSerializerAdapterTest < ActiveSupport::TestCase
     end
   end
 
+  test "lazily deserializes values" do
+    serializer = Module.new do
+      def self.dump(*); ""; end
+      def self.load(*); raise "LOAD!"; end
+    end
+
+    @adapter = ActiveSupport::Cache::SerializerAdapter.new(serializer: serializer, compressor: Compressor)
+    entry = ActiveSupport::Cache::Entry.new([], version: "abc", expires_in: 123)
+    roundtripped = @adapter.load(@adapter.dump(entry))
+
+    assert_equal entry.version, roundtripped.version
+    assert_equal entry.expires_at, roundtripped.expires_at
+    assert_raises(match: "LOAD!") { roundtripped.value }
+  end
+
+  test "lazily decompresses values" do
+    compressor = Module.new do
+      def self.deflate(*); ""; end
+      def self.inflate(*); raise "INFLATE!"; end
+    end
+
+    @adapter = ActiveSupport::Cache::SerializerAdapter.new(serializer: Serializer, compressor: compressor)
+
+    [[STRING], STRING].each do |value|
+      entry = ActiveSupport::Cache::Entry.new(value, version: "abc", expires_in: 123)
+      roundtripped = @adapter.load(@adapter.dump_compressed(entry, 1))
+
+      assert_equal entry.version, roundtripped.version
+      assert_equal entry.expires_at, roundtripped.expires_at
+      assert_raises(match: "INFLATE!") { roundtripped.value }
+    end
+  end
+
   private
     module Serializer
       extend self
