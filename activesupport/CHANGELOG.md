@@ -1,3 +1,9 @@
+*   When using cache format version >= 7.1 or a custom serializer, expired and
+    version-mismatched cache entries can now be detected without deserializing
+    their values.
+
+    *Jonathan Hefner*
+
 *   Active Support cache stores now support replacing the default compressor via
     a `:compressor` option. The specified compressor must respond to `deflate`
     and `inflate`. For example:
