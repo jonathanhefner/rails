@@ -56,15 +56,8 @@ module ActiveSupport
         version = load_version(dumped.byteslice(PACKED_VERSION_INDEX, version_length)) if version_length >= 0
         payload = dumped.byteslice((PACKED_VERSION_INDEX + [version_length, 0].max)..)
 
-        payload = @compressor.inflate(payload) if type & COMPRESSED_FLAG > 0
-
-        if string_encoding = STRING_ENCODINGS[type & ~COMPRESSED_FLAG]
-          value = payload.force_encoding(string_encoding)
-        else
-          value = @serializer.load(payload)
-        end
-
-        Cache::Entry.new(value, version: version, expires_at: expires_at)
+        compressor = @compressor if type & COMPRESSED_FLAG > 0
+        LazyEntry.new(@serializer, compressor, payload, type, version: version, expires_at: expires_at)
       end
 
       private
@@ -87,6 +80,36 @@ module ActiveSupport
         PACKED_VERSION_INDEX = [0].pack(PACKED_VERSION_LENGTH_TEMPLATE).bytesize
 
         MARSHAL_SIGNATURE = "\x04\x08".b.freeze
+
+        class LazyEntry < Cache::Entry
+          def initialize(serializer, compressor, payload, type, **options)
+            super(payload, **options)
+            @serializer = serializer
+            @compressor = compressor
+            @type = type
+          end
+
+          def value
+            if @type
+              @value = @compressor.inflate(@value) if @compressor
+
+              if string_encoding = STRING_ENCODINGS[@type & ~COMPRESSED_FLAG]
+                @value.force_encoding(string_encoding)
+              else
+                @value = @serializer.load(@value)
+              end
+
+              @type = nil
+            end
+            @value
+          end
+
+          def mismatched?(version)
+            super.tap { |mismatched| value if !mismatched }
+          rescue Cache::DeserializationError
+            true
+          end
+        end
 
         def signature?(dumped)
           dumped.is_a?(String) && dumped.start_with?(SIGNATURE)
