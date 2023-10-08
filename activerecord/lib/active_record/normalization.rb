@@ -60,7 +60,6 @@ module ActiveRecord # :nodoc:
       #
       #   class User < ActiveRecord::Base
       #     normalizes :email, with: -> email { email.strip.downcase }
-      #     normalizes :phone, with: -> phone { phone.delete("^0-9").delete_prefix("1") }
       #   end
       #
       #   user = User.create(email: " CRUISE-CONTROL@EXAMPLE.COM\n")
@@ -76,7 +75,14 @@ module ActiveRecord # :nodoc:
       #   User.exists?(email: "\tCRUISE-CONTROL@EXAMPLE.COM ")         # => true
       #   User.exists?(["email = ?", "\tCRUISE-CONTROL@EXAMPLE.COM "]) # => false
       #
-      #   User.normalize_value_for(:phone, "+1 (555) 867-5309") # => "5558675309"
+      # TODO...
+      #
+      #   class Message < ActiveRecord::Base
+      #     normalizes attributes_of_type(:string), with: -> { _1.strip }
+      #   end
+      #
+      #   message = Message.new(subject: "", body: "")
+      #
       def normalizes(*names, with:, apply_to_nil: false)
         names.flatten!
 
@@ -94,11 +100,11 @@ module ActiveRecord # :nodoc:
       # ==== Examples
       #
       #   class User < ActiveRecord::Base
-      #     normalizes :email, with: -> email { email.strip.downcase }
+      #     normalizes :phone, with: -> phone { phone.delete("^0-9").delete_prefix("1") }
       #   end
       #
-      #   User.normalize_value_for(:email, " CRUISE-CONTROL@EXAMPLE.COM\n")
-      #   # => "cruise-control@example.com"
+      #   User.normalize_value_for(:phone, "+1 (555) 867-5309") # => "5558675309"
+      #
       def normalize_value_for(name, value)
         type_for_attribute(name).cast(value)
       end
