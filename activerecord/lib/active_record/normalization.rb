@@ -82,7 +82,59 @@ module ActiveRecord # :nodoc:
           NormalizedValueType.new(cast_type: cast_type, normalizer: with, normalize_nil: apply_to_nil)
         end
 
-        self.normalized_attributes += names.map(&:to_sym)
+        self.normalized_attributes += names.map { |name| resolve_attribute_name(name) }
+      end
+
+      # Similar to #normalizes, but normalizes attributes of the specified types.
+      #
+      #   class Snippet < ActiveRecord::Base
+      #     normalizes_attributes_of_type :string, :text, except: [:code], with: -> { _1.strip }
+      #   end
+      #
+      #   snippet = Snippet.create(title: "  Title", description: "Description.\n", code: "  code\n")
+      #   snippet.title        # => "Title"
+      #   snippet.description  # => "Description."
+      #   snippet.code         # => "  code\n"
+      #
+      # The normalization is applied to matching attributes from the model
+      # schema plus any attributes declared via
+      # {attribute}[rdoc-ref:ActiveRecord::Attributes::ClassMethods#attribute]
+      # _prior to_ the call to +normalizes_attributes_of_type+. Attributes
+      # declared after the call to +normalizes_attributes_of_type+ will not be
+      # affected. This behavior can be used to override a normalization from a
+      # parent class by redeclaring an attribute:
+      #
+      #   class ApplicationRecord < ActiveRecord::Base
+      #     normalizes_attributes_of_type :string, :text, with: -> { _1.strip }
+      #   end
+      #
+      #   class Snippet < ApplicationRecord
+      #     attribute :code, :text
+      #   end
+      #
+      #   snippet = Snippet.create(title: "  Title", description: "Description.\n", code: "  code\n")
+      #   snippet.title        # => "Title"
+      #   snippet.description  # => "Description."
+      #   snippet.code         # => "  code\n"
+      #
+      # ==== Options
+      #
+      # * +:except+ - Attributes to exclude from normalization. Can be a single
+      #   name or an array of names.
+      # * +:with+ - Any callable object that accepts the attribute's value as
+      #   its sole argument, and returns it normalized.
+      # * +:apply_to_nil+ - Whether to apply the normalization to +nil+ values.
+      #   Defaults to +false+.
+      #
+      def normalizes_attributes_of_type(*types, except: nil, with:, apply_to_nil: false)
+        except = Array(except).map { |name| resolve_attribute_name(name) }
+
+        decorate_attributes do |name, cast_type|
+          if types.include?(cast_type.type) && !except.include?(name)
+            self.normalized_attributes += [name]
+            NormalizedValueType.new(cast_type: cast_type, normalizer: with, normalize_nil: apply_to_nil)
+          end
+        end
       end
 
       # Normalizes a given +value+ using normalizations declared for +name+.
