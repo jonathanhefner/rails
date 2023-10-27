@@ -98,10 +98,10 @@
     <dt>Subject:</dt>
     <dd><strong id="subject"><%= @email.subject %></strong></dd>
 
-    <% unless @email.attachments.nil? || @email.attachments.empty? %>
+    <% if (attachments = @email.all_parts.select(&:attachment?).reject(&:inline?)).any? %>
       <dt>Attachments:</dt>
       <dd>
-        <% @email.attachments.each do |a| %>
+        <% attachments.each do |a| %>
           <% filename = a.respond_to?(:original_filename) ? a.original_filename : a.filename %>
           <%= link_to filename, "data:application/octet-stream;charset=utf-8;base64,#{Base64.encode64(a.body.to_s)}", download: filename %>
         <% end %>

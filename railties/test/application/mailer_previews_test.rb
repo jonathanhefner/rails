@@ -734,6 +734,8 @@ module ApplicationTests
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
       assert_match %r[<iframe name="messageBody"], last_response.body
+      assert_match %r[<dt>Attachments:</dt>], last_response.body
+      assert_match %r[<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K], last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -782,6 +784,8 @@ module ApplicationTests
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
       assert_match %r[<iframe name="messageBody"], last_response.body
+      assert_match %r[<dt>Attachments:</dt>], last_response.body
+      assert_match %r[<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K], last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -800,7 +804,7 @@ module ApplicationTests
           default from: "from@example.com"
 
           def foo
-            attachments['pixel.png'] = File.binread("#{app_path}/public/images/pixel.png")
+            attachments.inline['pixel.png'] = File.binread("#{app_path}/public/images/pixel.png")
             mail to: "to@example.org"
           end
         end
@@ -828,6 +832,7 @@ module ApplicationTests
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
       assert_match %r[<iframe name="messageBody"], last_response.body
+      assert_no_match %r[<dt>Attachments:</dt>], last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -837,6 +842,10 @@ module ApplicationTests
       assert_equal 200, last_response.status
       assert_match %r[<p>Hello, World!</p>], last_response.body
       assert_match %r[src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEWzIioca/JlAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJgggo="], last_response.body
+
+      get "/rails/mailers/download/notifier/foo"
+      email = Mail.read_from_string(last_response.body)
+      assert_equal "inline; filename=pixel.png", email.attachments.inline["pixel.png"].content_disposition
     end
 
     test "multipart mailer preview with attached email" do
@@ -886,6 +895,8 @@ module ApplicationTests
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
       assert_match %r[<iframe name="messageBody"], last_response.body
+      assert_match %r[<dt>Attachments:</dt>], last_response.body
+      assert_match %r[<a download="message.eml" href="data:application/octet-stream;charset=utf-8;base64,RGF0ZTog], last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
