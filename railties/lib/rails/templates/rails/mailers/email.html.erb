@@ -98,7 +98,7 @@
     <dt>Subject:</dt>
     <dd><strong id="subject"><%= @email.subject %></strong></dd>
 
-    <% if (attachments = @email.all_parts.select(&:attachment?).reject(&:inline?)).any? %>
+    <% if (attachments = Array(@email.all_parts).select(&:attachment?).reject(&:inline?)).any? %>
       <dt>Attachments:</dt>
       <dd>
         <% attachments.each do |a| %>
