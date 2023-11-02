@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/application_controller"
+require "active_support/core_ext/enumerable"
 
 class Rails::MailersController < Rails::ApplicationController # :nodoc:
   prepend_view_path ActionDispatch::DebugView::RESCUES_TEMPLATE_PATHS
@@ -9,7 +10,7 @@ class Rails::MailersController < Rails::ApplicationController # :nodoc:
   before_action :find_preview, only: [:preview, :download]
   before_action :require_local!, unless: :show_previews?
 
-  helper_method :part_query, :locale_query
+  helper_method :attachments_for, :inline_attachments_for, :attachment_url, :part_query, :locale_query
 
   content_security_policy(false)
 
@@ -93,6 +94,24 @@ class Rails::MailersController < Rails::ApplicationController # :nodoc:
       elsif @email.mime_type == format
         @email
       end
+    end
+
+    def all_attachments_for(email)
+      email.all_parts.to_a.select(&:attachment?).index_by do |attachment|
+        attachment.respond_to?(:original_filename) ? attachment.original_filename : attachment.filename
+      end
+    end
+
+    def attachments_for(email)
+      all_attachments_for(email).reject { |filename, attachment| attachment.inline? }
+    end
+
+    def inline_attachments_for(email)
+      all_attachments_for(email).select { |filename, attachment| attachment.inline? }
+    end
+
+    def attachment_url(attachment)
+      "data:application/octet-stream;charset=utf-8;base64,#{Base64.encode64(attachment.body.to_s)}"
     end
 
     def part_query(mime_type)

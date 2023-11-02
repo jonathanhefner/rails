@@ -733,9 +733,10 @@ module ApplicationTests
 
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
-      assert_match %r[<iframe name="messageBody"], last_response.body
-      assert_match %r[<dt>Attachments:</dt>], last_response.body
-      assert_match %r[<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K], last_response.body
+      assert_match %(<iframe name="messageBody"), last_response.body
+      assert_match %(<dt>Attachments:</dt>), last_response.body
+      assert_no_match %(<dt>Inline Attachments:</dt>), last_response.body
+      assert_match %(<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K), last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -783,9 +784,10 @@ module ApplicationTests
 
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
-      assert_match %r[<iframe name="messageBody"], last_response.body
-      assert_match %r[<dt>Attachments:</dt>], last_response.body
-      assert_match %r[<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K], last_response.body
+      assert_match %(<iframe name="messageBody"), last_response.body
+      assert_match %(<dt>Attachments:</dt>), last_response.body
+      assert_no_match %(<dt>Inline Attachments:</dt>), last_response.body
+      assert_match %(<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K), last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -831,8 +833,10 @@ module ApplicationTests
 
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
-      assert_match %r[<iframe name="messageBody"], last_response.body
-      assert_no_match %r[<dt>Attachments:</dt>], last_response.body
+      assert_match %(<iframe name="messageBody"), last_response.body
+      assert_no_match %(<dt>Attachments:</dt>), last_response.body
+      assert_match %(<dt>Inline Attachments:</dt>), last_response.body
+      assert_match %(<a download="pixel.png" href="data:application/octet-stream;charset=utf-8;base64,iVBORw0K), last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
@@ -894,9 +898,10 @@ module ApplicationTests
 
       get "/rails/mailers/notifier/foo"
       assert_equal 200, last_response.status
-      assert_match %r[<iframe name="messageBody"], last_response.body
-      assert_match %r[<dt>Attachments:</dt>], last_response.body
-      assert_match %r[<a download="message.eml" href="data:application/octet-stream;charset=utf-8;base64,RGF0ZTog], last_response.body
+      assert_match %(<iframe name="messageBody"), last_response.body
+      assert_match %(<dt>Attachments:</dt>), last_response.body
+      assert_no_match %(<dt>Inline Attachments:</dt>), last_response.body
+      assert_match %(<a download="message.eml" href="data:application/octet-stream;charset=utf-8;base64,RGF0ZTog), last_response.body
 
       get "/rails/mailers/notifier/foo?part=text/plain"
       assert_equal 200, last_response.status
