@@ -27,7 +27,7 @@
   }
 
   dt {
-    width: 80px;
+    width: 100px;
     padding: 1px;
     float: left;
     clear: left;
@@ -36,7 +36,7 @@
   }
 
   dd {
-    margin-left: 90px; /* 80px + 10px */
+    margin-left: 110px; /* 100px + 10px */
     padding: 1px;
   }
 
@@ -99,7 +99,7 @@
     <dd><strong id="subject"><%= @email.subject %></strong></dd>
 
     <% unless (attachments = attachments_for(@email)).empty? %>
-      <dt>Attachments:</dt>
+      <dt>Attached:</dt>
       <dd>
         <% attachments.each do |filename, attachment| %>
           <%= link_to filename, attachment_url(attachment), download: filename %>
@@ -108,7 +108,7 @@
     <% end %>
 
     <% unless (inline_attachments = inline_attachments_for(@email)).empty? %>
-      <dt>Inline Attachments:</dt>
+      <dt>Attached inline:</dt>
       <dd>
         <% inline_attachments.each do |filename, attachment| %>
           <%= link_to filename, attachment_url(attachment), download: filename %>
