@@ -873,7 +873,7 @@ class ActiveStorage::ManyAttachedTest < ActiveSupport::TestCase
       @user.highlights_with_variants.first.variant(:unknown).processed
     end
 
-    assert_match(/Cannot find variant :unknown for User#highlights_with_variants/, error.message)
+    assert_match(/Cannot find :unknown transformations for User#highlights_with_variants/, error.message)
   end
 
   test "creating preview by variation name" do
@@ -893,7 +893,7 @@ class ActiveStorage::ManyAttachedTest < ActiveSupport::TestCase
       @user.highlights_with_variants.first.preview(:unknown).processed
     end
 
-    assert_match(/Cannot find variant :unknown for User#highlights_with_variants/, error.message)
+    assert_match(/Cannot find :unknown transformations for User#highlights_with_variants/, error.message)
   end
 
   test "creating representation by variation name" do
@@ -913,10 +913,10 @@ class ActiveStorage::ManyAttachedTest < ActiveSupport::TestCase
       @user.highlights_with_variants.first.representation(:unknown).processed
     end
 
-    assert_match(/Cannot find variant :unknown for User#highlights_with_variants/, error.message)
+    assert_match(/Cannot find :unknown transformations for User#highlights_with_variants/, error.message)
   end
 
-  test "transforms variants later" do
+  test "preprocesses transformations later" do
     blob = create_blob(filename: "funky.jpg")
 
     assert_enqueued_with job: ActiveStorage::TransformJob, args: [blob, resize_to_limit: [1, 1]] do
@@ -924,7 +924,7 @@ class ActiveStorage::ManyAttachedTest < ActiveSupport::TestCase
     end
   end
 
-  test "transforms variants later conditionally via proc" do
+  test "preprocesses transformations later conditionally via proc" do
     assert_no_enqueued_jobs only: ActiveStorage::TransformJob do
       @user.highlights_with_conditional_preprocessed.attach create_blob(filename: "funky.jpg")
     end
@@ -937,7 +937,7 @@ class ActiveStorage::ManyAttachedTest < ActiveSupport::TestCase
     end
   end
 
-  test "transforms variants later conditionally via method" do
+  test "preprocesses transformations later conditionally via method" do
     assert_no_enqueued_jobs only: ActiveStorage::TransformJob do
       @user.highlights_with_conditional_preprocessed.attach create_blob(filename: "funky.jpg")
     end

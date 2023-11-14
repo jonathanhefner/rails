@@ -13,8 +13,8 @@ class ActiveStorage::ReflectionTest < ActiveSupport::TestCase
     reflection = User.reflect_on_attachment(:cover_photo)
     assert_equal :local, reflection.options[:service_name]
 
-    reflection = User.reflect_on_attachment(:avatar_with_variants)
-    assert_instance_of Hash, reflection.named_variants
+    predefined_transformations = User.reflect_on_attachment(:avatar_with_variants).predefined_transformations
+    assert_instance_of ActiveStorage::Reflection::PredefinedTransformations, predefined_transformations[:thumb]
   end
 
   test "reflection on a singular attachment with the same name as an attachment on another model" do
@@ -32,8 +32,8 @@ class ActiveStorage::ReflectionTest < ActiveSupport::TestCase
     reflection = User.reflect_on_attachment(:vlogs)
     assert_equal :local, reflection.options[:service_name]
 
-    reflection = User.reflect_on_attachment(:highlights_with_variants)
-    assert_instance_of Hash, reflection.named_variants
+    predefined_transformations = User.reflect_on_attachment(:highlights_with_variants).predefined_transformations
+    assert_instance_of ActiveStorage::Reflection::PredefinedTransformations, predefined_transformations[:thumb]
   end
 
   test "reflecting on all attachments" do

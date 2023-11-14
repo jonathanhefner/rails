@@ -2,13 +2,35 @@
 
 module ActiveStorage
   module Reflection
-    class HasAttachedReflection < ActiveRecord::Reflection::MacroReflection # :nodoc:
-      def variant(name, transformations)
-        named_variants[name] = NamedVariant.new(transformations)
+    class PredefinedTransformations # :nodoc:
+      attr_reader :transformations
+
+      def initialize(transformations, preprocess)
+        @transformations = transformations
+        @preprocess = preprocess
       end
 
-      def named_variants
-        @named_variants ||= {}
+      def preprocess_for?(record)
+        case @preprocess
+        when Symbol
+          record.send(@preprocess)
+        when Proc
+          @preprocess.call(record)
+        else
+          @preprocess
+        end
+      end
+    end
+
+    class HasAttachedReflection < ActiveRecord::Reflection::MacroReflection # :nodoc:
+      def variant(name, transformations)
+        transformations = transformations.dup
+        preprocess = transformations.delete(:preprocessed)
+        predefined_transformations[name] = PredefinedTransformations.new(transformations, preprocess)
+      end
+
+      def predefined_transformations
+        @predefined_transformations ||= {}
       end
     end
 

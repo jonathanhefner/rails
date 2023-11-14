@@ -98,7 +98,7 @@ module ActiveStorage::Blob::Representable
     variable? || previewable?
   end
 
-  def preprocessed(transformations) # :nodoc:
+  def process_transformations_later(transformations) # :nodoc:
     ActiveStorage::TransformJob.perform_later(self, transformations)
   end
 

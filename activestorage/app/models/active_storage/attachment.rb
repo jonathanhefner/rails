@@ -35,7 +35,7 @@ class ActiveStorage::Attachment < ActiveStorage::Record
   delegate_missing_to :blob
   delegate :signed_id, to: :blob
 
-  after_create_commit :mirror_blob_later, :analyze_blob_later, :transform_variants_later
+  after_create_commit :mirror_blob_later, :analyze_blob_later, :preprocess_transformations_later
   after_destroy_commit :purge_dependent_blob_later
 
   ##
@@ -130,9 +130,9 @@ class ActiveStorage::Attachment < ActiveStorage::Record
       blob.mirror_later
     end
 
-    def transform_variants_later
-      named_variants.each do |_name, named_variant|
-        blob.preprocessed(named_variant.transformations) if named_variant.preprocessed?(record)
+    def preprocess_transformations_later
+      predefined_transformations.each_value do |predefined|
+        blob.process_transformations_later(predefined.transformations) if predefined.preprocess_for?(record)
       end
     end
 
@@ -144,17 +144,16 @@ class ActiveStorage::Attachment < ActiveStorage::Record
       record.attachment_reflections[name]&.options&.fetch(:dependent, nil)
     end
 
-    def named_variants
-      record.attachment_reflections[name]&.named_variants
+    def predefined_transformations
+      record.attachment_reflections[name].predefined_transformations
     end
 
     def transformations_by_name(transformations)
       case transformations
       when Symbol
-        variant_name = transformations
-        named_variants.fetch(variant_name) do
-          record_model_name = record.to_model.model_name.name
-          raise ArgumentError, "Cannot find variant :#{variant_name} for #{record_model_name}##{name}"
+        name = transformations
+        predefined_transformations.fetch(name) do
+          raise ArgumentError, "Cannot find :#{name} transformations for #{record.to_model.model_name}##{self.name}"
         end.transformations
       else
         transformations
