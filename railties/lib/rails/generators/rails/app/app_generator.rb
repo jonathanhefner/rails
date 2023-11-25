@@ -346,22 +346,6 @@ module Rails
         build(:app)
       end
 
-      def create_bin_files
-        build(:bin)
-      end
-
-      def update_bin_files
-        build(:bin_when_updating)
-      end
-      remove_task :update_bin_files
-
-      def update_active_storage
-        unless skip_active_storage?
-          rails_command "active_storage:update", inline: true
-        end
-      end
-      remove_task :update_active_storage
-
       def create_dockerfiles
         return if options[:skip_docker] || options[:dummy_app]
         build(:dockerfiles)
@@ -376,6 +360,19 @@ module Rails
       end
       remove_task :update_config_files
 
+      def create_boot_file
+        template "config/boot.rb"
+      end
+
+      def create_bin_files
+        build(:bin)
+      end
+
+      def update_bin_files
+        build(:bin_when_updating)
+      end
+      remove_task :update_bin_files
+
       def create_master_key
         build(:master_key)
       end
@@ -383,15 +380,6 @@ module Rails
       def create_credentials
         build(:credentials)
         build(:credentials_diff_enroll)
-      end
-
-      def display_upgrade_guide_info
-        say "\nAfter this, check Rails upgrade guide at https://guides.rubyonrails.org/upgrading_ruby_on_rails.html for more details about upgrading your app."
-      end
-      remove_task :display_upgrade_guide_info
-
-      def create_boot_file
-        template "config/boot.rb"
       end
 
       def create_active_record_files
@@ -532,6 +520,18 @@ module Rails
           remove_file "config/initializers/new_framework_defaults_#{Rails::VERSION::MAJOR}_#{Rails::VERSION::MINOR}.rb"
         end
       end
+
+      def update_active_storage
+        unless skip_active_storage?
+          rails_command "active_storage:update", inline: true
+        end
+      end
+      remove_task :update_active_storage
+
+      def display_upgrade_guide_info
+        say "\nAfter this, check Rails upgrade guide at https://guides.rubyonrails.org/upgrading_ruby_on_rails.html for more details about upgrading your app."
+      end
+      remove_task :display_upgrade_guide_info
 
       def finish_template
         build(:leftovers)
