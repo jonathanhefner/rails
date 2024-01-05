@@ -103,7 +103,7 @@ module ActiveSupport
     #   Specifies how rounding is performed. See +BigDecimal.mode+. Defaults to
     #   +:default+.
     #
-    #     number_to_currency(1234567890.50, precision: 0, round_mode: :up)
+    #     number_to_currency(1234567890.01, precision: 0, round_mode: :up)
     #     # => "$1,234,567,891"
     #
     # [+:unit+]
