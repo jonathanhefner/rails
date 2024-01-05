@@ -163,16 +163,16 @@ module ActiveSupport
     #   The level of precision, or +nil+ to preserve +number+'s precision.
     #   Defaults to 2.
     #
-    #     number_to_percentage(302.24398923423, precision: 5) # => "302.24399%"
-    #     number_to_percentage(99.999, precision: 0)          # => "100%"
-    #     number_to_percentage(99.999, precision: nil)        # => "99.999%"
+    #     number_to_percentage(12.3456789, precision: 4) # => "12.3457%"
+    #     number_to_percentage(99.999, precision: 0)     # => "100%"
+    #     number_to_percentage(99.999, precision: nil)   # => "99.999%"
     #
     # [+:round_mode+]
     #   Specifies how rounding is performed. See +BigDecimal.mode+. Defaults to
     #   +:default+.
     #
-    #     number_to_percentage(302.24398923423, precision: 5, round_mode: :down)
-    #     # => "302.24398%"
+    #     number_to_percentage(12.3456789, precision: 4, round_mode: :down)
+    #     # => "12.3456%"
     #
     # [+:significant+]
     #   If true, causes +:precision+ to be applied to significant digits instead
