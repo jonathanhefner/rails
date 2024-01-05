@@ -175,8 +175,8 @@ module ActiveSupport
     #     # => "12.3456%"
     #
     # [+:significant+]
-    #   If true, causes +:precision+ to be applied to significant digits instead
-    #   of fractional digits. Defaults to false.
+    #   Whether +:precision+ should be applied to significant digits instead of
+    #   fractional digits. Defaults to false.
     #
     #     number_to_percentage(12345.6789, significant: false, precision: 2) # => "12345.68%"
     #     number_to_percentage(12345.6789, significant: true, precision: 2)  # => "12000%"
