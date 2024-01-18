@@ -7,6 +7,12 @@ class Rails::Command::HelpIntegrationTest < ActiveSupport::TestCase
   setup :build_app
   teardown :teardown_app
 
+  test "prints help on unrecognized bare option" do
+    %w[-z --zzz -T --tasks].each do |option|
+      assert_match "You must specify a command.", rails(option)
+    end
+  end
+
   test "prints helpful error on unrecognized command" do
     output = rails "vershen", allow_failure: true
 
