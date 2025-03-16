@@ -21,14 +21,16 @@ class SignedIdTest < ActiveRecord::TestCase
   fixtures :accounts, :toys, :companies
 
   setup do
-    ActiveRecord::Base.signed_id_verifier = ActiveSupport::MessageVerifier.new("secret")
+    ActiveRecord.message_verifiers = ActiveSupport::MessageVerifiers.new do |_salt|
+      "secret"
+    end.rotate_defaults
 
     @account = Account.first
     @toy = Toy.first
   end
 
   teardown do
-    ActiveRecord::Base.signed_id_verifier = nil
+    ActiveRecord.message_verifiers = nil
   end
 
   test "find signed record" do
@@ -168,13 +170,30 @@ class SignedIdTest < ActiveRecord::TestCase
     end
   end
 
-  test "use a custom verifier" do
+  test "custom verifier is set for model and its sub-models" do
     old_verifier = Account.signed_id_verifier
     Account.signed_id_verifier = ActiveSupport::MessageVerifier.new("sekret")
     assert_not_equal ActiveRecord::Base.signed_id_verifier, Account.signed_id_verifier
+    assert_equal Account.signed_id_verifier, SubAccount.signed_id_verifier
     assert_equal @account, Account.find_signed(@account.signed_id)
   ensure
     Account.signed_id_verifier = old_verifier
+  end
+
+  test "custom verifier is set only for the model (not for sub-models) when secret is set" do
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = "new secret"
+    end
+
+    Account.signed_id_verifier = ActiveSupport::MessageVerifier.new("sekret")
+    assert_not_equal ActiveRecord::Base.signed_id_verifier, Account.signed_id_verifier
+    assert_not_equal Account.signed_id_verifier, SubAccount.signed_id_verifier
+    assert_equal @account, Account.find_signed(@account.signed_id)
+  ensure
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = nil
+      Account.instance_variable_set :@signed_id_verifier, nil
+    end
   end
 
   test "on_rotation callback using custom verifier" do
@@ -206,6 +225,54 @@ class SignedIdTest < ActiveRecord::TestCase
     assert on_rotation_is_called
   ensure
     Account.signed_id_verifier = old_verifier
+  end
+
+  test "Account uses legacy signed ID verifier when secret is set for the model" do
+    account_signed_id_with_message_verifiers = @account.signed_id
+    assert_equal @account, Account.find_signed(account_signed_id_with_message_verifiers)
+
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = "account secret"
+    end
+    account_signed_id_with_secret = @account.signed_id
+    assert_equal @account, Account.find_signed(account_signed_id_with_secret)
+
+    assert_not_equal account_signed_id_with_message_verifiers, account_signed_id_with_secret
+  ensure
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = nil
+      Account.instance_variable_set :@signed_id_verifier, nil
+    end
+  end
+
+  test "model-specific signed_id_verifier_secret does not affect other models" do
+    toy_signed_id = @toy.signed_id
+
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = "account secret"
+    end
+
+    assert_equal @toy.signed_id, toy_signed_id
+  ensure
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = nil
+      Account.instance_variable_set :@signed_id_verifier, nil
+    end
+  end
+
+  test "fail to work when signed_id_verifier_secret lambda is nil" do
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = -> { nil }
+    end
+
+    assert_raises(ArgumentError) do
+      @account.signed_id
+    end
+  ensure
+    ActiveRecord.deprecator.silence do
+      Account.signed_id_verifier_secret = nil
+      Account.instance_variable_set :@signed_id_verifier, nil
+    end
   end
 
   test "cannot get a signed ID for a new record" do
