@@ -3020,6 +3020,16 @@ module ApplicationTests
       end
     end
 
+    test "ActiveRecord.message_verifiers == Rails.application.message_verifiers" do
+      add_to_config <<-RUBY
+        config.secret_key_base = "secret"
+      RUBY
+
+      app "development"
+
+      assert_equal ActiveRecord.message_verifiers, Rails.application.message_verifiers
+    end
+
     test "PostgresqlAdapter.decode_dates is true by default for new apps" do
       app_file "config/initializers/active_record.rb", <<~RUBY
         ActiveRecord::Base.establish_connection(adapter: "postgresql")
