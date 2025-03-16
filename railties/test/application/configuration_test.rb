@@ -3010,6 +3010,16 @@ module ApplicationTests
       assert_nil signed_id_verifier.verified(signed_account_id_one_with_legacy_options, purpose: "account")
     end
 
+    test "raises when config.active_record.use_legacy_signed_id_verifier has invalid value" do
+      add_to_config <<-RUBY
+        config.active_record.use_legacy_signed_id_verifier = :invalid_option
+      RUBY
+
+      assert_raise(ArgumentError) do
+        app "development"
+      end
+    end
+
     test "PostgresqlAdapter.decode_dates is true by default for new apps" do
       app_file "config/initializers/active_record.rb", <<~RUBY
         ActiveRecord::Base.establish_connection(adapter: "postgresql")

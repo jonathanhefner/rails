@@ -332,7 +332,7 @@ To keep using the current cache store, you can turn off cache versioning entirel
       elsif use_legacy_signed_id_verifier == :verify
         app.message_verifiers.rotate { |salt| legacy_options if salt == "active_record/signed_id" }
       elsif use_legacy_signed_id_verifier
-        raise "Unrecognized value for config.active_record.use_legacy_signed_id_verifier: #{use_legacy_signed_id_verifier.inspect}"
+        raise ArgumentError, "Unrecognized value for config.active_record.use_legacy_signed_id_verifier: #{use_legacy_signed_id_verifier.inspect}"
       end
     end
 
