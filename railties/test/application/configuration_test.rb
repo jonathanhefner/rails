@@ -2943,21 +2943,13 @@ module ApplicationTests
 
       app "development"
 
-      signed_id_verifier = ActiveRecord.message_verifiers["active_record/signed_id"]
+      signed_id_verifier = Rails.application.message_verifiers["active_record/signed_id"]
 
-      # generate with legacy options
-      signed_account_id_one = signed_id_verifier.generate(1, purpose: "account")
-      expected_signed_account_id_one =
-        ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"), digest: "SHA256", serializer: JSON, url_safe: true)
-          .generate(1, purpose: "account")
+      secret = app.key_generator.generate_key("active_record/signed_id")
+      legacy_verifier = ActiveSupport::MessageVerifier.new(secret, digest: "SHA256", serializer: JSON, url_safe: true)
 
-      assert_equal expected_signed_account_id_one, signed_account_id_one
-
-      # verify with new options
-      signed_account_id_one_with_new_options =
-        ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"))
-          .generate(1, purpose: "account")
-      assert signed_id_verifier.verify(signed_account_id_one_with_new_options, purpose: "account")
+      assert_equal "message", legacy_verifier.verify(signed_id_verifier.generate("message"))
+      assert_equal "message", signed_id_verifier.verify(legacy_verifier.generate("message"))
     end
 
     test "Rails.application.message_verifiers['active_record/signed_id'] verifies messages using legacy options when config.active_record.use_legacy_signed_id_verifier is :verify" do
@@ -2968,21 +2960,15 @@ module ApplicationTests
 
       app "development"
 
-      signed_id_verifier = ActiveRecord.message_verifiers["active_record/signed_id"]
+      signed_id_verifier = Rails.application.message_verifiers["active_record/signed_id"]
 
-      # generate with new options
-      signed_account_id_one = signed_id_verifier.generate(1, purpose: "account")
-      expected_signed_account_id_one =
-        ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"))
-          .generate(1, purpose: "account")
+      secret = app.key_generator.generate_key("active_record/signed_id")
+      legacy_verifier = ActiveSupport::MessageVerifier.new(secret, digest: "SHA256", serializer: JSON, url_safe: true)
 
-      assert_equal expected_signed_account_id_one, signed_account_id_one
-
-      # verify with legacy options
-      signed_account_id_one_with_legacy_options =
-        ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"), digest: "SHA256", serializer: JSON, url_safe: true)
-          .generate(1, purpose: "account")
-      assert signed_id_verifier.verify(signed_account_id_one_with_legacy_options, purpose: "account")
+      assert_equal "message", signed_id_verifier.verify(legacy_verifier.generate("message"))
+      assert_raises ActiveSupport::MessageVerifier::InvalidSignature do
+        legacy_verifier.verify(signed_id_verifier.generate("message"))
+      end
     end
 
     test "Rails.application.message_verifiers['active_record/signed_id'] does not use legacy options when config.active_record.use_legacy_signed_id_verifier is false" do
@@ -2993,21 +2979,17 @@ module ApplicationTests
 
       app "development"
 
-      signed_id_verifier = ActiveRecord.message_verifiers["active_record/signed_id"]
+      signed_id_verifier = Rails.application.message_verifiers["active_record/signed_id"]
 
-      # generate with new options
-      signed_account_id_one = signed_id_verifier.generate(1, purpose: "account")
-      expected_signed_account_id_one =
-        ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"))
-          .generate(1, purpose: "account")
+      secret = app.key_generator.generate_key("active_record/signed_id")
+      legacy_verifier = ActiveSupport::MessageVerifier.new(secret, digest: "SHA256", serializer: JSON, url_safe: true)
 
-      assert_equal expected_signed_account_id_one, signed_account_id_one
-
-      # not verify with legacy options
-      signed_account_id_one_with_legacy_options =
-      ActiveSupport::MessageVerifier.new(app.key_generator("secret").generate_key("active_record/signed_id"), digest: "SHA256", serializer: JSON, url_safe: true)
-        .generate(1, purpose: "account")
-      assert_nil signed_id_verifier.verified(signed_account_id_one_with_legacy_options, purpose: "account")
+      assert_raises ActiveSupport::MessageVerifier::InvalidSignature do
+        signed_id_verifier.verify(legacy_verifier.generate("message"))
+      end
+      assert_raises ActiveSupport::MessageVerifier::InvalidSignature do
+        legacy_verifier.verify(signed_id_verifier.generate("message"))
+      end
     end
 
     test "raises when config.active_record.use_legacy_signed_id_verifier has invalid value" do
@@ -3015,19 +2997,15 @@ module ApplicationTests
         config.active_record.use_legacy_signed_id_verifier = :invalid_option
       RUBY
 
-      assert_raise(ArgumentError) do
+      assert_raise(match: /config.active_record.use_legacy_signed_id_verifier/) do
         app "development"
       end
     end
 
-    test "ActiveRecord.message_verifiers == Rails.application.message_verifiers" do
-      add_to_config <<-RUBY
-        config.secret_key_base = "secret"
-      RUBY
-
+    test "ActiveRecord.message_verifiers is Rails.application.message_verifiers" do
       app "development"
 
-      assert_equal ActiveRecord.message_verifiers, Rails.application.message_verifiers
+      assert_same Rails.application.message_verifiers, ActiveRecord.message_verifiers
     end
 
     test "PostgresqlAdapter.decode_dates is true by default for new apps" do

@@ -100,7 +100,7 @@ module ActiveRecord
             secret = secret.call if secret.respond_to?(:call)
 
             if secret.nil?
-              raise ArgumentError, "You must set ActiveRecord::Base.signed_id_verifier_secret to use signed ids"
+              raise ArgumentError, "You must set ActiveRecord::Base.signed_id_verifier_secret to use signed IDs"
             end
 
             ActiveSupport::MessageVerifier.new secret, digest: "SHA256", serializer: JSON, url_safe: true
@@ -109,7 +109,7 @@ module ActiveRecord
           return _signed_id_verifier if _signed_id_verifier
 
           if ActiveRecord.message_verifiers.nil?
-            raise "You must set ActiveRecord.message_verifiers to use signed ids"
+            raise "You must set ActiveRecord.message_verifiers to use signed IDs"
           end
 
           ActiveRecord.message_verifiers["active_record/signed_id"]
