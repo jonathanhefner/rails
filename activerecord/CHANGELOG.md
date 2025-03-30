@@ -1,19 +1,62 @@
-*   Refactor ActiveRecord Signed ID to use global `Rails.application.message_verifiers`
+*   Allow signed ID verifiers to be configurable via `Rails.application.message_verifiers`
 
-    This change ensures a unified configuration for all message verifiers, making it easier to rotate secrets and upgrade signing algorithms. See [message_verifiers](https://api.rubyonrails.org/classes/Rails/Application.html#method-i-message_verifiers) for more details.
+    Prior to this change, the primary way to configure signed ID verifiers was
+    to set `signed_id_verifier` on each model class:
 
-    `config.active_record.use_legacy_signed_id_verifier` provides a smooth transition to this goal. It can be set to:
-      * `:generate_and_verify` (default) - Generate and verify signed IDs using the following legacy options:
+      ```ruby
+      Post.signed_id_verifier = ActiveSupport::MessageVerifier.new(...)
+      Comment.signed_id_verifier = ActiveSupport::MessageVerifier.new(...)
+      ```
+
+    And if the developer did not set `signed_id_verifier`, a verifier would be
+    instantiated with a secret derived from `secret_key_base` and the following
+    options:
 
       ```ruby
       { digest: "SHA256", serializer: JSON, url_safe: true }
       ```
 
-      * `:verify` - Generate and verify signed IDs using options from `Rails.application.message_verifiers`, but fall back to verifying with the same options as `:generate_and_verify`.
+    Thus it was cumbersome to rotate configuration for all verifiers.
 
-      * `false` - Generate and verify signed IDs using options from `Rails.application.message_verifiers` only.
+    This change defines a new Rails config: [`config.active_record.use_legacy_signed_id_verifier`][].
+    The default value is `:generate_and_verify`, which preserves the previous
+    behavior. However, when set to `:verify`, signed ID verifiers will use
+    configuration from `Rails.application.message_verifiers` (specifically,
+    `Rails.application.message_verifiers["active_record/signed_id"]`) to
+    generate and verify signed IDs, but will also verify signed IDs using the
+    older configuration.
 
-    *WARNING:* If `ActiveRecord::Base.signed_id_verifier_secret` is set in your application, Signed ID will not use global `message_verifiers`.
+    To avoid complication, the new behavior only applies when `signed_id_verifier_secret`
+    is not set on a model class, and `signed_id_verifier_secret` is now
+    deprecated. If you are currently setting `signed_id_verifier_secret` on a
+    model class, set `signed_id_verifier` instead:
+
+      ```ruby
+      # BEFORE
+      Post.signed_id_verifier_secret = "my secret"
+
+      # AFTER
+      Post.signed_id_verifier = ActiveSupport::MessageVerifier.new("my secret", digest: "SHA256", serializer: JSON, url_safe: true)
+      ```
+
+    To ease migration, `signed_id_verifier` has also been changed to behave as a
+    `class_attribute` (i.e. inheritable), but _only when `signed_id_verifier_secret`
+    is not set_:
+
+      ```ruby
+      # BEFORE
+      ActiveRecord::Base.signed_id_verifier = ActiveSupport::MessageVerifier.new(...)
+      Post.signed_id_verifier == ActiveRecord::Base.signed_id_verifier # => false
+
+      # AFTER
+      ActiveRecord::Base.signed_id_verifier = ActiveSupport::MessageVerifier.new(...)
+      Post.signed_id_verifier == ActiveRecord::Base.signed_id_verifier # => true
+
+      Post.signed_id_verifier_secret = "my secret" # => deprecation warning
+      Post.signed_id_verifier == ActiveRecord::Base.signed_id_verifier # => false
+      ```
+
+    [`config.active_record.use_legacy_signed_id_verifier`]: https://guides.rubyonrails.org/v8.1/configuring.html#config-active-record-use-legacy-signed-id-verifier
 
     *Ali Sepehri*, *Jonathan Hefner*
 
